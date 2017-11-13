@@ -1016,5 +1016,6 @@ def predict_skycoponent_visibility_para_modified(viss: list, sc: Skycomponent, m
     return viss
 
 # =============# =============# Timeslots =============# =============# =============
-def solve_gaintable():
+def solve_gaintable_para(vis: visibility_for_para, model: visibility_for_para=None, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs):
+
     pass
