@@ -207,7 +207,6 @@ def frac_coord(npixel, kernel_oversampling, p):
     return flx.astype(int), fracx.astype(int)
 
 
-B
 def convolutional_degrid(kernel_list, vshape, uvgrid, vuvwmap, vfrequencymap, vpolarisationmap=None):
     """Convolutional degridding with frequency and polarisation independent
 
