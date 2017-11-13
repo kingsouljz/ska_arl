@@ -152,6 +152,7 @@ class TestImageIterators(unittest.TestCase):
         visibility = coalesce_visibility(blockvisibility)
         print(blockvisibility.uvw)
         b = decoalesce_visibility(visibility)
+
         visibility_right(visibility, vis)
 
     # def test_all(self):
