@@ -1,0 +1,14 @@
+# 常数值
+FACETS = 2
+NPOL = 4
+NCHAN = 5
+NX = 256
+NY = 256
+BEAM = 0
+NTIMES = 5
+NAN = 3
+NBASE = NAN * (NAN - 1) // 2
+DX = NX / 4
+DY = NY / 4
+PIECE = FACETS * FACETS
+PRECISION = 10
