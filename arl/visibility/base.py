@@ -147,7 +147,8 @@ def create_blockvisibility(config: Configuration,
     
     nch = len(frequency)
     ants_xyz = config.data['xyz']
-    nants = len(config.data['names'])
+    # nants = len(config.data['names'])
+    nants = 3
     nbaselines = int(nants * (nants - 1) / 2)
     ntimes = len(times)
     npol = polarisation_frame.npol

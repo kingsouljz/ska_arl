@@ -687,10 +687,9 @@ if __name__ == '__main__':
 	# === pharotpre_dft_sumvis ===
 	pharotpre_dft_sumvis = pharotpre_dft_sumvis_handle(degrid, broadcast_lsm)
 	pharotpre_dft_sumvis.cache()
-	pharotpre_dft_sumvis.count()
 	# TODO 验证pharotpre_dft_sumvis的正确性, 待完成
 
-	# broads_input0 = sc.broadcast(pharotpre_dft_sumvis.collect())
+	broads_input0 = sc.broadcast(pharotpre_dft_sumvis.collect())
 	# # === Timeslots ===
 	# timeslots = timeslots_handle(broads_input0, broads_input1)
 	# timeslots.cache()

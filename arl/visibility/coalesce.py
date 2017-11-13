@@ -46,7 +46,7 @@ def coalesce_visibility(vis: BlockVisibility, **kwargs) -> Visibility:
     :param vis: BlockVisibility to be coalesced
     :return: Coalesced visibility with  cindex and blockvis filled in
     """
-    
+    # 将blockvisibility合并为一个visibility
     assert type(vis) is BlockVisibility, "vis is not a BlockVisibility: %r" % vis
     
     time_coal = get_parameter(kwargs, 'time_coal', 0.0)
@@ -55,8 +55,9 @@ def coalesce_visibility(vis: BlockVisibility, **kwargs) -> Visibility:
     max_frequency_coal = get_parameter(kwargs, 'max_frequency_coal', 100)
     
     if time_coal == 0.0 and frequency_coal == 0.0:
+        # 若time和frequency的合并率均为0，则只做一个简单的blockvisibility到visibility的变换
         return convert_blockvisibility_to_visibility((vis))
-    
+    # 否则使用average_in_blocks做一系列较为复杂的合并变换
     cvis, cuvw, cwts, ctime, cfrequency, cchannel_bandwidth, ca1, ca2, cintegration_time, cindex \
         = average_in_blocks(vis.data['vis'], vis.data['uvw'], vis.data['weight'], vis.time, vis.integration_time,
                             vis.frequency, vis.channel_bandwidth, time_coal, max_time_coal,
@@ -85,7 +86,7 @@ def convert_blockvisibility_to_visibility(vis: BlockVisibility) -> Visibility:
     :param vis: BlockVisibility to be converted
     :return: Visibility with  cindex and blockvis filled in
     """
-    
+    # 将blockvisibility不做合并直接转换
     assert type(vis) is BlockVisibility, "vis is not a BlockVisibility: %r" % vis
     
     cvis, cuvw, cwts, ctime, cfrequency, cchannel_bandwidth, ca1, ca2, cintegration_time, cindex \
@@ -117,7 +118,7 @@ def decoalesce_visibility(vis: Visibility, overwrite=False) -> BlockVisibility:
     :param vis: (Coalesced visibility)
     :return: BlockVisibility with vis and weight columns overwritten
     """
-    
+    # 去合并，元数据不变，vis按照cindex填入
     assert type(vis) is Visibility, "vis is not a Visibility: %r" % vis
     assert type(vis.blockvis) is BlockVisibility, "No blockvisibility in vis"
     assert vis.cindex is not None, "No reverse index in Visibility"
@@ -134,6 +135,7 @@ def decoalesce_visibility(vis: Visibility, overwrite=False) -> BlockVisibility:
     npol = vshape[-1]
     dvis = numpy.zeros(vshape, dtype='complex')
     assert numpy.max(vis.cindex) < dvis.size
+    print(vis.cindex)
     for i in range(dvis.size // npol):
         decomp_vis.data['vis'].flat[i:i + npol] = vis.data['vis'][vis.cindex[i]]
     
@@ -146,6 +148,7 @@ def decoalesce_visibility(vis: Visibility, overwrite=False) -> BlockVisibility:
 
 def average_in_blocks(vis, uvw, wts, times, integration_time, frequency, channel_bandwidth, time_coal=1.0,
                       max_time_coal=100, frequency_coal=1.0, max_frequency_coal=100):
+    # TODO 合并block函数，待阅读
     # Calculate the averaging factors for time and frequency making them the same for all times
     # for this baseline
     # Find the maximum possible baseline and then scale to this.
@@ -281,7 +284,7 @@ def average_in_blocks(vis, uvw, wts, times, integration_time, frequency, channel
 def convert_blocks(vis, uvw, wts, times, integration_time, frequency, channel_bandwidth):
     # The input visibility is a block of shape [ntimes, nant, nant, nchan, npol]. We will map this
     # into rows like vis[npol] and with additional columns antenna1, antenna2, frequency
-    
+    # 将blockvisibility中的数据除了uvw不加变换的放入visibility中， uvw稍作变换放入
     ntimes, nant, _, nchan, npol = vis.shape
     assert nchan == len(frequency)
     
@@ -330,7 +333,6 @@ def convert_blocks(vis, uvw, wts, times, integration_time, frequency, channel_ba
                     cvis[row, :] = vis[itime, a2, a1, chan, :]
                     cwts[row, :] = wts[itime, a2, a1, chan, :]
                     row += 1
-    
     return cvis, cuvw, cwts, ctime, cfrequency, cchannel_bandwidth, ca1, ca2, cintegration_time, cindex
 
 

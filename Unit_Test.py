@@ -1,6 +1,6 @@
 from test import *
 from arl.imaging.base import predict_skycomponent_visibility
-from arl.visibility.coalesce import decoalesce_visibility
+from arl.visibility.coalesce import decoalesce_visibility, coalesce_visibility
 from arl.imaging.facets import predict_facets
 from arl.calibration.solvers import solve_gaintable
 import unittest
@@ -149,9 +149,10 @@ class TestImageIterators(unittest.TestCase):
                                          phasecentre=phasecentre, weight=1,
                                          polarisation_frame=PolarisationFrame('stokesIQUV'),
                                          integration_time=1.0)
-        solve_gaintable(blockvisibility)
-
-
+        visibility = coalesce_visibility(blockvisibility)
+        print(blockvisibility.uvw)
+        b = decoalesce_visibility(visibility)
+        visibility_right(visibility, vis)
 
     # def test_all(self):
     #     '''

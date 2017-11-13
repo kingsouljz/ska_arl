@@ -4,6 +4,7 @@ from arl.skycomponent.operations import *
 from arl.data.polarisation import *
 from arl.data.data_models import *
 from arl.visibility.base import *
+from astropy import constants
 from arl.image.operations import *
 from reproject import reproject_interp
 from arl.skycomponent.operations import insert_skycomponent
@@ -94,7 +95,29 @@ class visibility_for_para:
         self.phasecentre = visibility.phasecentre
         self.polarisation_frame = visibility.polarisation_frame
         # self.configuration = visibility.configuration
-        # self.cindex = visibility.cindex
+
+    @property
+    def block_uvw(self):
+        '''
+            拿到blockvisibilit中的uvw值, 做一个简单的变换即可
+        :return:
+        '''
+        if self.mode == "npol" or self.mode == "pol":
+            return data['uvw'][0] * constants.c.value / data['frequency'][0]
+        else:
+            return data['uvw'] * constants.c.value / data['frequency'][0]
+
+    def uvw(self):
+        if self.mode == "npol" or self.mode == "pol":
+            return data['uvw'][0]
+        else:
+            return data['uvw']
+
+    def vis(self):
+        if self.mode == "npol" or self.mode == "pol":
+            return data['vis'][0]
+        else:
+            return data['uvw']
 
     def __str__(self):
         ret = "mode: %s, nvis: %s, npol: %s \n" %(self.mode, self.nvis, self.npol)
@@ -124,6 +147,10 @@ class visibility_share:
         ret = "phasecentre: %s, polarisation_frame_type: %s, configuration: %s" % (str(self.phasecentre),
         str(self.polarisation_frame), str(self.configuration))
 
+class block_visibility_for_para:
+    '''
+        coalesce之后的visibility
+    '''
 
 class image_for_para:
     '''
@@ -204,6 +231,21 @@ def float_equal(a, b):
         return True
     else:
         return False
+
+def uvw_equal(a, b):
+    '''
+        判断两个uvw是否相等
+    :param a:
+    :param b:
+    :return:
+    '''
+    for x,y in zip(a, b):
+        if math.fabs(x - y) >= math.pow(10, -PRECISION):
+            return False
+
+    return True
+
+
 
 def complex_equal(a: np.complex_, b: np.complex_):
     '''
@@ -516,7 +558,7 @@ def visibility_right(a: Visibility, b: Visibility):
     assert a.nvis == b.nvis, "two Visibilities' shape are different: %s and %s" %(a.nvis, b.nvis)
     assert a.polarisation_frame.type == b.polarisation_frame.type, "two Visibilities' polarisation_frame are different"
     for i in range(a.nvis):
-        assert (a.data['uvw'][i] == b.data['uvw'][i]).all(), "uvw are different %s and %s" % (a.data['uvw'][i], b.data['uvw'][i])
+        assert uvw_equal(a.data['uvw'][i], b.data['uvw'][i]), "uvw are different %s and %s" % (a.data['uvw'][i], b.data['uvw'][i])
         assert a.data['time'][i] == b.data['time'][i], "time are different"
         assert a.data['frequency'][i] == b.data['frequency'][i], "frequency are different %s and %s"% (a.data['frequency'][i], b.data['frequency'][i])
         assert a.data['channel_bandwidth'][i] == b.data['channel_bandwidth'][i], "channel_bandwidth are different"
@@ -887,14 +929,14 @@ def predict_with_image_iterator_para(vis: visibility_for_para, model: image_for_
     return ret
 
 # =============# =============# pharotpre_dft_sumvis_ =============# =============# =============
-def decoalesce_visibility_para(vis: Visibility) -> BlockVisibility:
+def decoalesce_visibility_para(vis: visibility_for_para):
     '''
 
     :param vis:
     :return:
     '''
-    # TODO 个人认为并行化程序中不需要该方法
-    pass
+    # TODO 暂时不需要此方法，因为不明确coalesce的方法
+
 
 def phaserotate_visibility_para(vis: visibility_for_para, newphasecentre: SkyCoord, tangent=True, inverse=False) -> visibility_for_para:
     """
@@ -973,7 +1015,6 @@ def predict_skycoponent_visibility_para_modified(viss: list, sc: Skycomponent, m
 
     return viss
 
-
-
-
-
+# =============# =============# Timeslots =============# =============# =============
+def solve_gaintable():
+    pass
