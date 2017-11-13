@@ -1,6 +1,8 @@
 from test import *
 from arl.imaging.base import predict_skycomponent_visibility
+from arl.visibility.coalesce import decoalesce_visibility
 from arl.imaging.facets import predict_facets
+from arl.calibration.solvers import solve_gaintable
 import unittest
 import numpy as np
 
@@ -27,6 +29,7 @@ vis = create_visibility(lowcore, times=times, frequency=frequency,
                         phasecentre=phasecentre, weight=1,
                         polarisation_frame=PolarisationFrame('stokesIQUV'),
                         integration_time=1.0)  # vis [baselines, times, nchan, npol]
+
 
 
 class TestImageIterators(unittest.TestCase):
@@ -78,32 +81,32 @@ class TestImageIterators(unittest.TestCase):
     #     im = reproject_image(image_graph, newwcs, newshape)[0]
     #     image_right(im, new_im)
     #
-    def test_predict_facets(self):
-        '''
-            test predict_facets
-            已通过 2017, 11, 1
-        :return:
-        '''
-
-        viss, visibility_share = visibility_to_visibility_para(vis, 'npol')
-        ims, image_share = image_to_image_para(image_graph, FACETS)
-        viss2 = []
-        for v in viss:
-            for im in ims:
-                if v[0][0] == im.frequency:
-                    viss2.append(((v[0][0], v[0][1], v[0][2], v[0][3], im.facet, im.polarisation), predict_facets_para(v[1], im)))
-        map = {(0,1): 0, (0,2): 1, (1,2):2}
-
-        new_vis = copy.deepcopy(vis)
-        for i, v in enumerate(viss2):
-            print(v[0],v[1].data['vis'])
-            id = v[0][0] + v[0][1] * NBASE * NCHAN + map[(v[0][2], v[0][3])] * NCHAN
-            new_vis.data['vis'][id] += v[1].data['vis'][0]
-
-        visibility = copy.deepcopy(vis)
-        predict_facets(visibility, image_graph)
-        print(visibility.data['vis'])
-        visibility_right(visibility, new_vis)
+    # def test_predict_facets(self):
+    #     '''
+    #         test predict_facets
+    #         已通过 2017, 11, 1
+    #     :return:
+    #     '''
+    #
+    #     viss, visibility_share = visibility_to_visibility_para(vis, 'npol')
+    #     ims, image_share = image_to_image_para(image_graph, FACETS)
+    #     viss2 = []
+    #     for v in viss:
+    #         for im in ims:
+    #             if v[0][0] == im.frequency:
+    #                 viss2.append(((v[0][0], v[0][1], v[0][2], v[0][3], im.facet, im.polarisation), predict_facets_para(v[1], im)))
+    #     map = {(0,1): 0, (0,2): 1, (1,2):2}
+    #
+    #     new_vis = copy.deepcopy(vis)
+    #     for i, v in enumerate(viss2):
+    #         print(v[0],v[1].data['vis'])
+    #         id = v[0][0] + v[0][1] * NBASE * NCHAN + map[(v[0][2], v[0][3])] * NCHAN
+    #         new_vis.data['vis'][id] += v[1].data['vis'][0]
+    #
+    #     visibility = copy.deepcopy(vis)
+    #     predict_facets(visibility, image_graph)
+    #     print(visibility.data['vis'])
+    #     visibility_right(visibility, new_vis)
     #
     # def test_phaserotate_visibility(self):
     #     '''
@@ -136,6 +139,20 @@ class TestImageIterators(unittest.TestCase):
     #     predict_skycomponent_visibility(visibility, comp)
     #     visibility_right(visibility, new_vis)
     #
+    def test_solve_gaintable(self):
+        '''
+
+        :return:
+        '''
+        blockvisibility = create_blockvisibility(lowcore, times=times, frequency=frequency,
+                                         channel_bandwidth=channel_bandwidth,
+                                         phasecentre=phasecentre, weight=1,
+                                         polarisation_frame=PolarisationFrame('stokesIQUV'),
+                                         integration_time=1.0)
+        solve_gaintable(blockvisibility)
+
+
+
     # def test_all(self):
     #     '''
     #         将前面的方法串联起来进行测试
@@ -189,8 +206,8 @@ class TestImageIterators(unittest.TestCase):
     #     # ===比较===
     #     visibility_right(visibility, new_vis)
 
-    def pass_test(self):
-        pass
+    # def pass_test(self):
+    #     pass
 
 
 
