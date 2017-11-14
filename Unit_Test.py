@@ -50,8 +50,8 @@ class TestImageIterators(unittest.TestCase):
     #     new_im = image_para_facet_to_image(ims, FACETS, image_share)
     #     image_right(image_graph, new_im)
     #     print("image test passed")
-
-
+    #
+    #
     # def test_insert_skycomponent(self):
     #     '''
     #         test insert_skycomponent
@@ -66,8 +66,8 @@ class TestImageIterators(unittest.TestCase):
     #         insert_skycomponent(image_graph, comp, insert_method=method)
     #         image_right(image_graph, new_im)
     #         print("%s method test passed" % method)
-
-
+    #
+    #
     # def test_Reproject_image(self):
     #     '''
     #         test reproject_image
@@ -143,7 +143,7 @@ class TestImageIterators(unittest.TestCase):
     #     visibility = copy.deepcopy(vis)
     #     predict_skycomponent_visibility(visibility, comp)
     #     visibility_right(visibility, new_vis)
-    #
+
     def test_solve_gaintable(self):
         '''
 
@@ -158,9 +158,12 @@ class TestImageIterators(unittest.TestCase):
         # image = reproject_image(image, wcs, newshape)[0]
         visibility = copy.deepcopy(vis)
         predict_facets(visibility, image)
+        model_vis = decoalesce_visibility(copy.deepcopy(visibility))
         visibility = phaserotate_visibility(visibility, newphasecentre, tangent=False)
         predict_skycomponent_visibility(visibility, comp)
-        solve_gaintable(decoalesce_visibility(visibility))
+        gt = solve_gaintable(decoalesce_visibility(visibility), model_vis)
+        apply_gaintable(decoalesce_visibility(visibility), gt)
+
 
 
     # def test_all(self):

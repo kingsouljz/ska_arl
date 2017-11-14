@@ -1025,7 +1025,7 @@ def predict_skycoponent_visibility_para_modified(viss: list, sc: Skycomponent, m
     return viss
 
 # =============# =============# Timeslots =============# =============# =============
-def solve_gaintable_para1(vis: visibility_for_para, model: visibility_for_para=None, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs):
+def solve_gaintable_para(vis: visibility_for_para, model: visibility_for_para=None, **kwargs):
     '''
 
     :param vis:
@@ -1039,7 +1039,8 @@ def solve_gaintable_para1(vis: visibility_for_para, model: visibility_for_para=N
     '''
     pass
 
-def solve_gaintable_para2(vis: visibility_for_para, model: visibility_for_para=None, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs):
+# =============# =============# Solve =============# =============# =============
+def solve_from_X_para(x: numpy.ndarray, xwt: numpy.ndarray, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs)->gaintable_for_para:
     """
 
     :param vis:
@@ -1053,6 +1054,7 @@ def solve_gaintable_para2(vis: visibility_for_para, model: visibility_for_para=N
     """
     pass
 
+# =============# =============#  cor_subvis_flag  =============# =============# =============
 def apply_gaintable(vis: visibility_for_para, gt: gaintable_for_para, inverse=False, **kwargs):
     """
 

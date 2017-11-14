@@ -127,14 +127,16 @@ def divide_visibility(vis: BlockVisibility, modelvis: BlockVisibility):
     :return:
     """
     # Different for scalar and vector/matrix cases
+    # 使用modelvis去除以vis
     isscalar = vis.polarisation_frame.npol == 1
-    
+    # 若npol=1
     if isscalar:
         # Scalar case is straightforward
         x = numpy.zeros_like(vis.vis)
         xwt = numpy.abs(modelvis.vis) ** 2 * vis.weight
         mask = xwt > 0.0
         x[mask] = vis.vis[mask] / modelvis.vis[mask]
+    # 否则
     else:
         nrows, nants, _, nchan, npol = vis.vis.shape
         nrec = 2
@@ -151,9 +153,11 @@ def divide_visibility(vis: BlockVisibility, modelvis: BlockVisibility):
                         wt = numpy.matrix(vis.weight[row, ant2, ant1, chan].reshape([2, 2]))
                         x[row, ant2, ant1, chan] = numpy.matmul(numpy.linalg.inv(mvis), ovis)
                         xwt[row, ant2, ant1, chan] = numpy.dot(mvis, numpy.multiply(wt, mvis.H)).real
+        # 计算得到新的vis和新的权重, 并且矩阵大部分值为0，因为只计算了ant2 > ant1的部分, 个人认为可以直接使用visibility计算
         x = x.reshape((nrows, nants, nants, nchan, nrec * nrec))
         xwt = xwt.reshape((nrows, nants, nants, nchan, nrec * nrec))
-    
+
+    # 只有vis和weight得到了新的值，其他数据均不变
     pointsource_vis = BlockVisibility(data=None, frequency=vis.frequency, channel_bandwidth=vis.channel_bandwidth,
                                       phasecentre=vis.phasecentre, configuration=vis.configuration,
                                       uvw=vis.uvw, time=vis.time, integration_time=vis.integration_time, vis=x,

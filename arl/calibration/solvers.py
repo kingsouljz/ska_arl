@@ -42,7 +42,7 @@ def solve_gaintable(vis: BlockVisibility, modelvis: BlockVisibility=None, phase_
 
     """
     assert type(vis) is BlockVisibility, "vis is not a BlockVisibility: %r" % vis
-    assert type(modelvis) is BlockVisibility or type(modelvis) is not None, "modelvis is not None or a " \
+    assert type(modelvis) is BlockVisibility or type(modelvis) is None, "modelvis is not None or a " \
                                                                             "BlockVisibility: %r" % vis
     
     if phase_only:
@@ -54,16 +54,24 @@ def solve_gaintable(vis: BlockVisibility, modelvis: BlockVisibility=None, phase_
     gt = create_gaintable_from_blockvisibility(vis)
 
     for chunk, rows in enumerate(vis_timeslice_iter(vis, **kwargs)): # 对visibility按照time切片
+        # 切片好的visibility shape: [1,nant,nant,nchan,npol]
         subvis = create_visibility_from_rows(vis, rows)
+        #若存在model
         if modelvis is not None:
+            # model_visibility也要以相同的方式按time切片
             model_subvis = create_visibility_from_rows(modelvis, rows)
+            # 两个vis相除计算得到新的block_vis，其中的元数据未改变，只有vis和weight发生了改变
             pointvis = divide_visibility(subvis, model_subvis)
+            # 此处因为第0个axis是time轴，并且vis已经按照time分片，所以按照第0axis做了average以后值不发生变化
             x = numpy.average(pointvis.vis, axis=0)
             xwt = numpy.average(pointvis.weight, axis=0)
+
         else:
             x = numpy.average(subvis.vis, axis=0)
             xwt = numpy.average(subvis.weight, axis=0)
-            
+
+        # 将数据填入gaintable中
+        # solve 和 timeslot的分界线
         gt = solve_from_X(gt, x, xwt, chunk, crosspol, niter, phase_only,
                         tol, npol=vis.polarisation_frame.npol)
 
