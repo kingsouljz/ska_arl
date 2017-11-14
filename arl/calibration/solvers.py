@@ -49,10 +49,11 @@ def solve_gaintable(vis: BlockVisibility, modelvis: BlockVisibility=None, phase_
         log.info('solve_gaintable: Solving for phase only')
     else:
         log.info('solve_gaintable: Solving for complex gain')
-    
+
+    # 根据blockvisibility的元数据初始化一个gaintable
     gt = create_gaintable_from_blockvisibility(vis)
-    
-    for chunk, rows in enumerate(vis_timeslice_iter(vis, **kwargs)):
+
+    for chunk, rows in enumerate(vis_timeslice_iter(vis, **kwargs)): # 对visibility按照time切片
         subvis = create_visibility_from_rows(vis, rows)
         if modelvis is not None:
             model_subvis = create_visibility_from_rows(modelvis, rows)

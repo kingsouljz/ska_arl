@@ -151,6 +151,15 @@ class block_visibility_for_para:
     '''
         coalesce之后的visibility
     '''
+    pass
+
+class gaintable_for_para:
+    """
+        并行化的gaintable
+    """
+    # TODO 初步确定的结构
+    def __init__(self, ):
+        pass
 
 class image_for_para:
     '''
@@ -283,7 +292,7 @@ def create_image_from_array_para(im , y1:int, y2:int, x1:int, x2:int, id:int, fr
     :param x1:
     :param x2:
     :param id:  赋予每个facet的id
-    :param wcs: 每个facet的wcs
+   :param wcs: 每个facet的wcs
     :return: 切分后的image
     '''
     fim = image_for_para(im[y1:y2, x1:x2], None, frequency, time, id, polarisation)
@@ -1016,6 +1025,41 @@ def predict_skycoponent_visibility_para_modified(viss: list, sc: Skycomponent, m
     return viss
 
 # =============# =============# Timeslots =============# =============# =============
-def solve_gaintable_para(vis: visibility_for_para, model: visibility_for_para=None, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs):
+def solve_gaintable_para1(vis: visibility_for_para, model: visibility_for_para=None, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs):
+    '''
 
+    :param vis:
+    :param model:
+    :param phase_only:
+    :param niter:
+    :param tol:
+    :param crosspol:
+    :param kwargs:
+    :return:
+    '''
+    pass
+
+def solve_gaintable_para2(vis: visibility_for_para, model: visibility_for_para=None, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs):
+    """
+
+    :param vis:
+    :param model:
+    :param phase_only:
+    :param niter:
+    :param tol:
+    :param crosspol:
+    :param kwargs:
+    :return:
+    """
+    pass
+
+def apply_gaintable(vis: visibility_for_para, gt: gaintable_for_para, inverse=False, **kwargs):
+    """
+
+    :param vis:
+    :param gt:
+    :param inverse:
+    :param kwargs:
+    :return:
+    """
     pass

@@ -19,16 +19,21 @@ phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-35.0 * u.deg, frame='icrs', equino
 compabsdirection = SkyCoord(ra=17.0 * u.deg, dec=-36.5 * u.deg, frame='icrs', equinox='J2000')
 
 comp = create_skycomponent(flux=flux, frequency=frequency, direction=compabsdirection,
-                           polarisation_frame=PolarisationFrame('stokesIQUV'))  # flux [2,4]
+                           polarisation_frame=PolarisationFrame('linear'))  # flux [2,4]
 
 image_graph = create_test_image(frequency=frequency, phasecentre=phasecentre, cellsize=0.001,
-                                polarisation_frame=PolarisationFrame('stokesIQUV'))  # data [2,4,256,256]
-
-vis = create_visibility(lowcore, times=times, frequency=frequency,
-                        channel_bandwidth=channel_bandwidth,
-                        phasecentre=phasecentre, weight=1,
-                        polarisation_frame=PolarisationFrame('stokesIQUV'),
-                        integration_time=1.0)  # vis [baselines, times, nchan, npol]
+                                polarisation_frame=PolarisationFrame('linear'))  # data [2,4,256,256]
+blockvis = create_blockvisibility(lowcore, times=times, frequency=frequency,
+                                                 channel_bandwidth=channel_bandwidth,
+                                                 phasecentre=phasecentre, weight=1,
+                                                 polarisation_frame=PolarisationFrame('linear'),
+                                                 integration_time=1.0)
+vis = coalesce_visibility(blockvis)
+# vis = create_visibility(lowcore, times=times, frequency=frequency,
+#                         channel_bandwidth=channel_bandwidth,
+#                         phasecentre=phasecentre, weight=1,
+#                         polarisation_frame=PolarisationFrame('stokesIQUV'),
+#                         integration_time=1.0)  # vis [baselines, times, nchan, npol]
 
 
 
@@ -144,16 +149,19 @@ class TestImageIterators(unittest.TestCase):
 
         :return:
         '''
-        blockvisibility = create_blockvisibility(lowcore, times=times, frequency=frequency,
-                                         channel_bandwidth=channel_bandwidth,
-                                         phasecentre=phasecentre, weight=1,
-                                         polarisation_frame=PolarisationFrame('stokesIQUV'),
-                                         integration_time=1.0)
-        visibility = coalesce_visibility(blockvisibility)
-        print(blockvisibility.uvw)
-        b = decoalesce_visibility(visibility)
+        newphasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-10.0 * u.deg, frame='icrs', equinox='J2000')
+        # ===串行===
+        image = copy.deepcopy(image_graph)
+        insert_skycomponent(image, comp, insert_method="Sinc")
+        wcs, newshape = create_new_wcs_new_shape(image.wcs, image.data.shape)
+        # image.data = fft(image.data)
+        # image = reproject_image(image, wcs, newshape)[0]
+        visibility = copy.deepcopy(vis)
+        predict_facets(visibility, image)
+        visibility = phaserotate_visibility(visibility, newphasecentre, tangent=False)
+        predict_skycomponent_visibility(visibility, comp)
+        solve_gaintable(decoalesce_visibility(visibility))
 
-        visibility_right(visibility, vis)
 
     # def test_all(self):
     #     '''
@@ -227,3 +235,4 @@ def create_new_wcs_new_shape(wcs, shape):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -135,9 +135,16 @@ def decoalesce_visibility(vis: Visibility, overwrite=False) -> BlockVisibility:
     npol = vshape[-1]
     dvis = numpy.zeros(vshape, dtype='complex')
     assert numpy.max(vis.cindex) < dvis.size
-    print(vis.cindex)
+    # print(vis.cindex)
+    # TODO 感觉此处逻辑有误
+    # for i in range(dvis.size // npol):
+    #     decomp_vis.data['vis'].flat[i:i + npol] = vis.data['vis'][vis.cindex[i]]
+
+    # 修改后
     for i in range(dvis.size // npol):
-        decomp_vis.data['vis'].flat[i:i + npol] = vis.data['vis'][vis.cindex[i]]
+        decomp_vis.data['vis'].flat[i * npol: i * npol + npol] = vis.data['vis'][vis.cindex[i]]
+
+
     
     log.debug('decoalesce_visibility: Coalesced %s, decoalesced %s' % (vis_summary(vis),
                                                                        vis_summary(
