@@ -106,18 +106,50 @@ class visibility_for_para:
             return data['uvw'][0] * constants.c.value / data['frequency'][0]
         else:
             return data['uvw'] * constants.c.value / data['frequency'][0]
-
+    @property
     def uvw(self):
         if self.mode == "npol" or self.mode == "pol":
             return data['uvw'][0]
         else:
             return data['uvw']
-
+    @property
     def vis(self):
         if self.mode == "npol" or self.mode == "pol":
             return data['vis'][0]
         else:
             return data['uvw']
+
+    @property
+    def time(self):
+        return data['time'][0]
+
+    @property
+    def frequency(self):
+        return data['frequency'][0]
+
+    @property
+    def channel_bandwidth(self):
+        return data['channel_bandwidth'][0]
+
+    @property
+    def integration_time(self):
+        return data['integration_time'][0]
+
+    @property
+    def antenna1(self):
+        return data['antenna1'][0]
+
+    @property
+    def antenna2(self):
+        return data['antenna2'][0]
+
+    @property
+    def weight(self):
+        return data['weight'][0]
+
+    @property
+    def imaging_weight(self):
+        return data['imaging_weight'][0]
 
     def __str__(self):
         ret = "mode: %s, nvis: %s, npol: %s \n" %(self.mode, self.nvis, self.npol)
@@ -147,19 +179,41 @@ class visibility_share:
         ret = "phasecentre: %s, polarisation_frame_type: %s, configuration: %s" % (str(self.phasecentre),
         str(self.polarisation_frame), str(self.configuration))
 
-class block_visibility_for_para:
-    '''
-        coalesce之后的visibility
-    '''
-    pass
-
 class gaintable_for_para:
     """
         并行化的gaintable
     """
     # TODO 初步确定的结构
-    def __init__(self, ):
-        pass
+    def __init__(self, gain = None, time = None, weight = None, residual = None, frequency = None, receptor_frame = ReceptorFrame("linear"), nvis=1):
+        nrec = receptor_frame.nrec
+        desc = [('gain', '>c16', (nants, nrec, nrec)),
+                ('weight', '>f8', (nants, nrec, nrec)),
+                ('residual', '>f8', (nrec, nrec)),
+                ('time', '>f8')]
+        self.data = np.zeros(shape=nvis, dtype=desc)
+        self.data['gain'] = gain
+        self.data['weight'] = weight
+        self.data['time'] = time
+        self.data['residual'] = residual
+        self.frequency = frequency
+        self.receptor_frame = receptor_frame
+
+    @property
+    def time(self):
+        return self.data['time']
+
+    @property
+    def gain(self):
+        return self.data['gain']
+
+    @property
+    def weight(self):
+        return self.data['weight']
+
+    @property
+    def residual(self):
+        return self.data['residual']
+
 
 class image_for_para:
     '''
@@ -961,7 +1015,7 @@ def phaserotate_visibility_para(vis: visibility_for_para, newphasecentre: SkyCoo
     if numpy.abs(n) > 1e-15:
 
         # Make a new copy
-        newvis = copy_visibility(vis)
+        newvis = copy.deepcopy(vis)
 
         phasor = simulate_point(newvis.data['uvw'], l, m)
 
@@ -1026,21 +1080,80 @@ def predict_skycoponent_visibility_para_modified(viss: list, sc: Skycomponent, m
 
 # =============# =============# Timeslots =============# =============# =============
 def solve_gaintable_para(vis: visibility_for_para, model: visibility_for_para=None, **kwargs):
-    '''
+    """
 
     :param vis:
     :param model:
-    :param phase_only:
-    :param niter:
-    :param tol:
-    :param crosspol:
     :param kwargs:
+    :return: vis和weight
+    """
+    # TODO 是否可能对一组time做平均？
+    if model is not None:
+        pointvis = divide_visibility_para(vis, model)
+        # 对同一组的time做平均
+        x = np.average(pointvis.vis)
+        xwt = np.average(pointvis.weight)
+    else:
+        x = np.average(vis.vis, axis=0)
+        xwt = np.average(vis.weight, axis=0)
+    return (x, xwt)
+
+def divide_visibility_para(vis: visibility_for_para, model: visibility_for_para):
+    '''
+        对两个visibility的vis做矩阵除法
+    :param vis:
+    :param model:
     :return:
     '''
-    pass
+    assert vis.mode == "npol", "there are not enough pols in the vis"
+    isscalar = vis.polarisation_frame.npol == 1
+    if isscalar:
+        x = np.zeros_like(vis.vis)
+        xwt = np.abs(model.vis) ** 2 * vis.weight
+        mask = xwt > 0.0
+        x[mask] = vis.vis[mask] / model.vis[mask]
+
+    else:
+        nrec = 2
+        nrow = vis.nvis
+        assert nrec * nrec == npol
+        x = np.zeros([nrow, nrec, nrec], dtype='complex')
+        xwt = np.zeros([nrow, nrec, nrec])
+        for row in range(nrows):
+            ovis = np.matrix(vis.vis[row].reshape([2, 2]))
+            mvis = np.matrix(model.vis[row].reshape([2, 2]))
+            wt = np.matrix(vis.weight[row].reshape([2, 2]))
+            x[row] = np.matmul(np.linalg.inv(mvis), ovis)
+            xwt = np.dot(mvis, np.multiply(wt, mvis.H)).real
+    x = x.reshape([nrow, nrec * nrec])
+    xwt = xwt.reshape([nrow, nrec * nrec])
+    pointsource_vis = copy.deepcopy(vis)
+    pointsource_vis.vis = x
+    pointsource_vis.weight = xwt
+
+
+    return pointsource_vis
+
+def create_gaintable_from_visibility_para(vis: visibility_for_para, nant, time_width = None, frequency_width = None):
+    receptor_frame = ReceptorFrame(vis.polarisation_frame.type)
+    nrec = receptor_frame.nrec
+    gainshape = [nant, nrec, nrec]
+    gain = np.ones(gainshape, dtype='complex')
+    if nrec > 1:
+        gain[:, 0, 1] = 0.0
+        gain[:, 1, 0] = 0.0
+
+    gain_weight = np.ones(gainshape)
+    gain_time = vis.time
+    gain_frequency = vis.frequency
+    gain_residual = np.zeros(gainshape)
+    gt = gaintable_for_para(gain=gain, time=gain_time, weight=gain_weight, residual=gain_residual,
+                            frequency=gain_frequency, receptor_frame=receptor_frame)
+    return gt
+
 
 # =============# =============# Solve =============# =============# =============
-def solve_from_X_para(x: numpy.ndarray, xwt: numpy.ndarray, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs)->gaintable_for_para:
+def solve_from_X_para(x, xwt, gt, npol, phase_only=True, niter=30, tol=1e-8, crosspol=False, **kwargs)->gaintable_for_para:
     """
 
     :param vis:
@@ -1052,7 +1165,113 @@ def solve_from_X_para(x: numpy.ndarray, xwt: numpy.ndarray, phase_only=True, nit
     :param kwargs:
     :return:
     """
+    gainshape = gt.data['gain'][0].shape
+    if npol > 1:
+        if crosspol:
+            gt.data['gain'], gt.data['weight'], gt.data['residual'] = solve_antenna_gains_itsubs_matrix_para(gainshape, x, xwt, phase_only=phase_only, niter=niter, tol=tol)
+
+        else:
+            gt.data['gain'], gt.data['weight'], gt.data['residual'] = solve_antenna_gains_itsubs_vector_para(gainshape, x, xwt, phase_only=phase_only, niter=niter, tol=tol)
+
+    else:
+        gt.data['gain'], gt.data['weight'], gt.data['residual'] = solve_antenna_gains_itsubs_scalar_para(gainshape, x, xwt, phase_only=phase_only, niter=niter, tol=tol)
+
+    return gt
+
+def solve_antenna_gains_itsubs_matrix_para():
     pass
+
+def solve_antenna_gains_itsubs_vector_para(gainshape, x, xwt, phase_only, niter, tol, refant=0):
+    nants = gainshape[0]
+    npol = x[0].shape[0]
+    assert npol == 4
+    newshape = (nants, nants, 2, 2)
+    newx = np.zeros(newshape, dtype=x.dtype)
+    newxwt = np.zeros(newshape, dtype=xwt.dtype)
+    for data, weight in zip(x, xwt):
+        id, it = data
+        newx[id[6], id[6], ...] = 0.0
+        newxwt[id[6], id[6], ...] = 0.0
+        newx[id[6], id[7], ...] = np.conjugate(it)
+        newxwt[id[6], id[7], ...] = weight
+        newx[id[7], id[6], ...] = it
+        newxwt[id[7], id[6], ...] = weight
+
+    gain = np.ones(shape=gainshape, dtype=x.dtype)
+    gain[..., 0, 1] = 0.0
+    gain[..., 1, 0] = 0.0
+    gwt = np.zeros(shape=gainshape, dtype=xwt.dtype)
+
+    for iter in range(niter):
+        gainLast = gain
+        gain, gwt = gain_substitution_vector_para(gain, newx, newxwt)
+        for rec in [0, 1]:
+            gain[..., rec, 1 - rec] = 0.0
+            if phase_only:
+                gain[..., rec, rec] = gain[..., rec, rec] / np.abs(gain[..., rec, rec])
+            gain[..., rec, rec] *= np.conjugate(gain[refant, rec, rec]) / np.abs(gain[refant, rec, rec])
+        change = np.max(np.abs(gain - gainLast))
+        gain = 0.5 * (gain + gainLast)
+        if change < tol:
+            return gain, gwt, solution_residual_vector_para(gain, newx, newxwt)
+
+    return gain, gwt, solution_residual_vector_para(gain, new, newxwt)
+
+def gain_substitution_vector_para(gain, x, xwt):
+    nant, nrec, _ = gain.shape
+    newgain = np.ones_like(gain, dtype='complex')
+    if nrec > 0:
+        newgain[..., 0, 1] = 0.0
+        newgain[..., 1, 0] = 0.0
+
+    gwt = np.zeros_like(gain, dtype='float')
+
+    if nrec > 0:
+        gain[..., 0, 1] = 0.0
+        gain[..., 1, 0] = 0.0
+
+    for ant1 in range(nants):
+        for rec in range(nrec):
+            top = np.sum(x[:, ant1, rec, rec] * gain[:, rec, rec] * xwt[:, ant1, rec, rec], axis=0)
+            bot = np.sum(gain[:, rec, rec] * np.conjugate(gain[:, rec, rec]) * xwt[:, ant1, rec, rec], axis=0)
+
+            if bot > 0.0:
+                newgain[ant1, rec, rec] = top / bot
+                gwt[ant1, rec, rec] = bot
+            else:
+                newgain[ant1, rec, rec] = 0.0
+                gwt[ant1, rec, rec] = 0.0
+
+    return newgain, gwt
+
+
+
+def solution_residual_vector_para(gain, x, xwt):
+    nants, nrec, _ = gain.shape
+    x[..., 1, 0] = 0.0
+    x[..., 0, 1] = 0.0
+
+    xwt[..., 1, 0] = 0.0
+    xwt[..., 0, 1] = 0.0
+    residual = np.zeros([nrec, nrec])
+    sumwt = np.zeros([nrec. nrec])
+
+    for ant1 in range(nants):
+        for ant2 in range(nants):
+            for rec in range(nrec):
+                error = x[ant2, ant1, rec, rec] - gain[ant1, rec, rec] * np.conjugate(gain[ant2, rec, rec])
+                residual += (error * xwt[ant2, ant1, rec, rec] * np.conjugate(error)).real
+                sumwt += xwt[ant2, ant1, rec, rec]
+
+    residual[sumwt > 0.0] = np.sqrt(residual[sumwt > 0.0] / sumwt[sumwt > 0.0])
+    residual[sumwt <= 0.0] = 0.0
+
+    return residual
+
+
+def solve_antenna_gains_itsubs_scalar_para():
+    pass
+
 
 # =============# =============#  cor_subvis_flag  =============# =============# =============
 def apply_gaintable(vis: visibility_for_para, gt: gaintable_for_para, inverse=False, **kwargs):

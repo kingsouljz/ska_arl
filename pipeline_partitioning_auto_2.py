@@ -436,12 +436,11 @@ def pharotpre_dft_sumvis_kernel(ixs):
 
 	label = "Phase Rotation Predict + DFT + Sum visibilities (546937.1 MB, 512.53 Tflop) "
 	print(label + str(viss))
-	# TODO 最后return的是visibility迭代器还是已经合并后的visibility
+	# TODO 最后return的是visibility迭代器还是已经合并后的visibility, 此处可以用time划分
 	return iter(viss)
 
 def timeslots_kernel(ixs):
 	idx, data_pharotpre_dft_sumvis, data_visibility_buffer = ixs
-	Hash = 0
 	input_size = 0
 	ix = (0, 0, 0, 0, 0, 0)
 	ix = idx
