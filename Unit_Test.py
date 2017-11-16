@@ -161,8 +161,11 @@ class TestImageIterators(unittest.TestCase):
         model_vis = decoalesce_visibility(copy.deepcopy(visibility))
         visibility = phaserotate_visibility(visibility, newphasecentre, tangent=False)
         predict_skycomponent_visibility(visibility, comp)
-        gt = solve_gaintable(decoalesce_visibility(visibility), model_vis)
-        apply_gaintable(decoalesce_visibility(visibility), gt)
+        block = decoalesce_visibility(visibility)
+        print(block.vis)
+        gt = solve_gaintable(block, model_vis)
+        result = apply_gaintable(block, gt)
+        print(result.vis)
 
 
 

@@ -211,24 +211,24 @@ def solve_antenna_gains_itsubs_vector(gainshape, x, xwt, niter=30, tol=1e-8, pha
     newshape = (nants, nants, nchan, 2, 2)
     x = x.reshape(newshape)
     xwt = xwt.reshape(newshape)
-    print(x)
-    print(100*'-')
-    print(xwt)
+    # print(x)
+    # print(100*'-')
+    # print(xwt)
     for ant1 in range(nants):
         x[ant1, ant1, ...] = 0.0
         xwt[ant1, ant1, ...] = 0.0
         for ant2 in range(ant1 + 1, nants):
             x[ant1, ant2, ...] = numpy.conjugate(x[ant2, ant1, ...])
             xwt[ant1, ant2, ...] = xwt[ant2, ant1, ...]
-    print(100 * '-')
-    print(x)
-    print(100 * '-')
-    print(xwt)
+    # print(100 * '-')
+    # print(x)
+    # print(100 * '-')
+    # print(xwt)
     gain = numpy.ones(shape=gainshape, dtype=x.dtype)
     gain[..., 0, 1] = 0.0
     gain[..., 1, 0] = 0.0
     gwt = numpy.zeros(shape=gainshape, dtype=xwt.dtype)
-    
+    # 做迭代
     for iter in range(niter):
         gainLast = gain
         gain, gwt = gain_substitution_vector(gain, x, xwt)
@@ -239,6 +239,7 @@ def solve_antenna_gains_itsubs_vector(gainshape, x, xwt, niter=30, tol=1e-8, pha
             gain[..., rec, rec] *= numpy.conjugate(gain[refant, ..., rec, rec]) / numpy.abs(gain[refant, ..., rec, rec])
         change = numpy.max(numpy.abs(gain - gainLast))
         gain = 0.5 * (gain + gainLast)
+        # 若改变的值过小，则跳出迭代直接返回结果和残差
         if change < tol:
             return gain, gwt, solution_residual_vector(gain, x, xwt)
     

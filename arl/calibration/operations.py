@@ -91,7 +91,7 @@ def apply_gaintable(vis: BlockVisibility, gt: GainTable, inverse=False, **kwargs
         log.debug('apply_gaintable: Apply inverse gaintable')
     else:
         log.debug('apply_gaintable: Apply gaintable')
-    
+    # 按照time对vis进行切片
     for chunk, rows in enumerate(vis_timeslice_iter(vis)):
         vistime = numpy.average(vis.time[rows])
         integration_time = numpy.average(vis.integration_time[rows])
