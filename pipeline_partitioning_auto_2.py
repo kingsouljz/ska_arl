@@ -99,7 +99,7 @@ def telescope_data_handle(telescope_management):
 	partitioner = MapPartitioner(partitions)
 	return input_telescope_management.partitionBy(len(partitions), partitioner).mapPartitions(telescope_data_kernel, True)
 
-def reppre_ifft_handle(broadcast_lsm, image_graph):
+def reppre_ifft_handle(broadcast_lsm):
 	initset = []
 	dep_extract_lsm = defaultdict(list)
 	beam = 0
@@ -111,7 +111,7 @@ def reppre_ifft_handle(broadcast_lsm, image_graph):
 			for polarisation in range(0, 4):
 				initset.append((beam, major_loop, frequency, time, facet, polarisation))
 
-	return sc.parallelize(initset).map(lambda ix: reppre_ifft_kernel((ix, broadcast_lsm), image_graph))
+	return sc.parallelize(initset).map(lambda ix: reppre_ifft_kernel((ix, broadcast_lsm)))
 
 def degrid_handle(reppre_ifft, broads_input_telescope_data):
 	return reppre_ifft.flatMap(lambda ix: degrid_kernel((ix, broads_input_telescope_data)))
@@ -282,28 +282,17 @@ def local_sky_model_kernel(ixs):
 
 def telescope_management_kernel(ixs):
 	'''
-    	生成总的visibility类，留待telescope_data_kernel进一步划分
+    	生成总的conf类，留待telescope_data_kernel进一步划分
     :param ixs:
-    :return: iter[(key, visibility)]
+    :return: iter[(key, conf)]
     '''
 	# TODO 为何生成迭代器
 	ix = next(ixs)[0]
 	Hash = 0
 	input_size = 0
-	result = []
-	lowcore = create_named_configuration('LOWBD2-CORE')
-	times = numpy.linspace(-3, +3, 5) * (numpy.pi / 12.0)  # time = 13
-	frequency = numpy.array([1e8, 1.1e8, 1.2e8, 1.3e8, 1.4e8])  # nchan = 5
-	channel_bandwidth = numpy.array([1e7, 1e7, 1e7, 1e7, 1e7])  # nchan = 5
-	phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-35.0 * u.deg, frame='icrs', equinox='J2000')
-	vis = create_visibility(lowcore, times=times, frequency=frequency,
-                            channel_bandwidth=channel_bandwidth,
-                            phasecentre=phasecentre, weight=1,
-                            polarisation_frame=PolarisationFrame('stokesIQUV'),
-                            integration_time=1.0)  # vis [baselines, times, nchan, npol]
-
+	conf = create_named_configuration('LOWBD2-CORE')
+	result = (ix, conf)
 	label = "Telescope Management (0.0 MB, 0.00 Tflop) "
-	result = (ix, vis)
 	print(label + str(result))
 	return iter([result])
 
@@ -329,34 +318,44 @@ def visibility_buffer_kernel(ixs, vis):
 	return result
 
 def telescope_data_kernel(ixs):
-	'''
+    '''
 		分割visibility类为visibility_para
-    :param ixs:
+	:param ixs:
     :return: iter[(key, visibility_para)]
     '''
-	# TODO 为何只有(0,0,0,0)被取出 未按照原来的逻辑
-	for data in ixs:
-		ix, vis = data
-		ufrequency = numpy.unique(vis.data['frequency'])
-		m = {}
-		for idx, chan in enumerate(ufrequency):
-			m[chan] = idx
-		utime = numpy.unique(vis.data['time'])
-		t = {}
-		for idx, time in enumerate(utime):
-			t[time] = idx
-		result = []
-		for i in range(vis.nvis):
-			v = visibility_for_para(vis.data['vis'][i], vis.data['uvw'][i]
-                                      ,vis.data['time'][i],vis.data['frequency'][i],vis.data["channel_bandwidth"][i]
-                               ,vis.data['integration_time'][i],vis.data['antenna1'][i],vis.data['antenna2'][i]
-                               ,vis.data['weight'][i], vis.data["imaging_weight"][i], vis, "npol")
-			result.append(((BEAM, m[v.data['frequency'][0]], t[v.data['time'][0]], v.data['antenna1'][0], v.data['antenna2'][0]), v))
-			label = "Telescope Data (0.0 MB, 0.00 Tflop) "
-	print(label, str(result))
-	return iter(result)
+    result = []
+    for data in ixs:
+        ix, conf = data
+        times = numpy.linspace(-3, +3, 5) * (numpy.pi / 12.0)  # time = 5
+        frequency = numpy.array([1e8, 1.1e8, 1.2e8, 1.3e8, 1.4e8])  # nchan = 5
+        channel_bandwidth = numpy.array([1e7, 1e7, 1e7, 1e7, 1e7])  # nchan = 5
+        phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-35.0 * u.deg, frame='icrs', equinox='J2000')
+        result.append((ix, (conf, times, frequency, channel_bandwidth, phasecentre)))
+        # vis = create_visibility(lowcore, times=times, frequency=frequency,
+        # 						channel_bandwidth=channel_bandwidth,
+        # 						phasecentre=phasecentre, weight=1,
+        # 						polarisation_frame=PolarisationFrame('stokesIQUV'),
+        # 						integration_time=1.0)  # vis [baselines, times, nchan, npol]
+        # ufrequency = numpy.unique(vis.data['frequency'])
+        # m = {}
+        # for idx, chan in enumerate(ufrequency):
+        # 	m[chan] = idx
+        # utime = numpy.unique(vis.data['time'])
+        # t = {}
+        # for idx, time in enumerate(utime):
+        # 	t[time] = idx
+        # result = []
+        # for i in range(vis.nvis):
+        # 	v = visibility_for_para(vis.data['vis'][i], vis.data['uvw'][i]
+        #                              ,vis.data['time'][i],vis.data['frequency'][i],vis.data["channel_bandwidth"][i]
+        #                       ,vis.data['integration_time'][i],vis.data['antenna1'][i],vis.data['antenna2'][i]
+        #                       ,vis.data['weight'][i], vis.data["imaging_weight"][i], vis, "npol")
+        # 	result.append(((BEAM, m[v.data['frequency'][0]], t[v.data['time'][0]], v.data['antenna1'][0], v.data['antenna2'][0]), v))
+        label = "Telescope Data (0.0 MB, 0.00 Tflop) "
+    print(label, str(result))
+    return iter(result)
 
-def reppre_ifft_kernel(ixs, image_graph):
+def reppre_ifft_kernel(ixs):
 	'''
 
 	:param ixs: (reppre(key), skycomponent(value)
@@ -366,22 +365,31 @@ def reppre_ifft_kernel(ixs, image_graph):
 	Hash = 0
 	input_size = 0
 	ix = reppre
-	###生成测试数据============###
-	image = copy.deepcopy(image_graph)
-	ims, img_share = image_to_image_para(image, FACETS)
+	###生成空的image数据============###
+	data = np.zeros([NY, NX])
 	beam, major_loop, frequency, time, facet, polarisation = ix
-	im = ims[frequency * (NPOL * PIECE) + polarisation * (PIECE) + facet]
-	# new wcs
-	wcs = im.wcs.deepcopy()
-	wcs.wcs.cdelt[0] = -0.001 * 180 / np.pi
-	wcs.wcs.cdelt[1] = 0.001 * 180 / np.pi
+	wcs = WCS(naxis=2)
+	wcs.wcs.cdelt[0] = -180.0 * CELLSIZE / np.pi
+	wcs.wcs.cdelt[1] = +180.0 * CELLSIZE / np.pi
+	wcs.wcs.ctype = CTYPE
+	wcs.wcs.radesys = 'ICRS'
+	wcs.wcs.equinox = 2000.00
+	wcs.wcs.crpix[0] = data.shape[1] // 2
+	wcs.wcs.crpix[1] = data.shape[0] // 2
+	wcs.wcs.crval[0] = PHASECENTRE.ra.deg
+	wcs.wcs.crval[1] = PHASECENTRE.dec.deg
+	im = image_for_para(data, wcs, frequency, time, facet, polarisation)
+	# 生成用来reproject的wcs和shape
+	new_wcs = im.wcs.deepcopy()
+	new_wcs.wcs.cdelt[0] = -0.001 * 180 / np.pi
+	new_wcs.wcs.cdelt[1] = 0.001 * 180 / np.pi
 	newshape2 = np.array(im.data.shape)
 	newshape2[0] /= 2
 	newshape2[1] /= 2
 	###==============###
 	for dix, comp in data_extract_lsm.value:
 		insert_skycomponent_para(im, comp)
-		# im = reproject_image_para(im, wcs, newshape2)[0]
+		# im = reproject_image_para(im, new_wcs, newshape2)[0]
 		# im.data = fft(im.data)
 	result = (ix, im)
 	label = "Reprojection Predict + IFFT (14645.6 MB, 2.56 Tflop) "
@@ -389,32 +397,35 @@ def reppre_ifft_kernel(ixs, image_graph):
 	return result
 
 def degrid_kernel(ixs):
-	data_reppre_ifft, data_telescope_data = ixs
-	Hash = 0
-	input_size = 0
-	iix, image = data_reppre_ifft
-	ix = iix
-	chan = ix[2]
-	result = []
-	for tix, conf in data_telescope_data.value:
-		if chan == tix[1]:
-			temp = predict_facets_para(conf, image)
-			# (beam, major_loop, chan, time, facet, polarisation, a1, a2)
-			result.append(((ix[0], ix[1], ix[2], tix[2], ix[4], ix[5], tix[3], tix[4]),temp))
-
-	label = "Degridding Kernel Update + Degrid (674.8 MB, 0.59 Tflop) "
-	# 复制四份
-	mylist = np.empty(4, list)
-	temp1 = ix[2] * 4
-	mylist[0] = ((ix[0], ix[1], temp1, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
-	temp2 = ix[2] * 4 + 1
-	mylist[1] = ((ix[0], ix[1], temp2, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
-	temp3 = ix[2] * 4 + 2
-	mylist[2] = ((ix[0], ix[1], temp3, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
-	temp4 = ix[2] * 4 + 3
-	mylist[3] = ((ix[0], ix[1], temp4, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
-	print(label + str(result))
-	return (mylist)
+    data_reppre_ifft, data_telescope_data = ixs
+    Hash = 0
+    input_size = 0
+    iix, image = data_reppre_ifft
+    ix = iix
+    result = []
+    beam, major_loop, chan, time, facet, polarisation = ix
+    cix, (conf, times, frequency, channel_bandwidth, phasecentre) = data_telescope_data.value[0]
+    # 创建新的visibility
+    viss = create_empty_visibility_para(conf, times, frequency[chan], channel_bandwidth[chan],
+										phasecentre, weight=1, polarisation_frame=PolarisationFrame('linear'),
+										integration_time=1.0)
+    for tix, vis in viss:
+        temp = predict_facets_para(vis, image)
+        # (beam, major_loop, chan, time, facet, polarisation, a1, a2)
+        result.append(((ix[0], ix[1], ix[2], tix[2], ix[4], ix[5], tix[3], tix[4]),temp))
+    label = "Degridding Kernel Update + Degrid (674.8 MB, 0.59 Tflop) "
+    # 复制四份
+    mylist = np.empty(4, list)
+    temp1 = ix[2] * 4
+    mylist[0] = ((ix[0], ix[1], temp1, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
+    temp2 = ix[2] * 4 + 1
+    mylist[1] = ((ix[0], ix[1], temp2, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
+    temp3 = ix[2] * 4 + 2
+    mylist[2] = ((ix[0], ix[1], temp3, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
+    temp4 = ix[2] * 4 + 3
+    mylist[3] = ((ix[0], ix[1], temp4, ix[3], ix[4], ix[5]), iter(copy.deepcopy(result)))
+    print(label + str(result))
+    return (mylist)
 
 def pharotpre_dft_sumvis_kernel(ixs):
 	data_degkerupd_deg, data_extract_lsm = ixs
@@ -432,11 +443,19 @@ def pharotpre_dft_sumvis_kernel(ixs):
 			ix = dix
 
 	for dix, data in data_extract_lsm.value:
-		predict_skycomponent_visibility_para(viss, data)
+		predict_skycoponent_visibility_para_modified(viss, data)
 
+	viss2 = {}
+	# 将同一channel同一time同一对baseline的vis合并起来
+	for id, vis in viss2:
+		v = viss2[(id[0], id[1], id[2], id[3], id[6], id[7])]
+		if v != None:
+			v.data['vis'] += vis.data['vis']
+		else:
+			viss2[(id[0], id[1], id[2], id[3], id[6], id[7])] = vis
+	result = list(zip(viss2.keys(), viss2.values()))
 	label = "Phase Rotation Predict + DFT + Sum visibilities (546937.1 MB, 512.53 Tflop) "
 	print(label + str(viss))
-	# TODO 最后return的是visibility迭代器还是已经合并后的visibility, 此处可以用time划分
 	return iter(viss)
 
 def timeslots_kernel(ixs):
@@ -654,7 +673,7 @@ if __name__ == '__main__':
 	visibility_buffer.cache()
 	broads_input1 = sc.broadcast(visibility_buffer.collect())
 	# === reppre_ifft ===
-	reppre_ifft = reppre_ifft_handle(broadcast_lsm, image_graph)
+	reppre_ifft = reppre_ifft_handle(broadcast_lsm)
 	reppre_ifft.cache()
 
 	# TODO 验证reppre_ifft的正确性，通过
@@ -686,13 +705,17 @@ if __name__ == '__main__':
 	# === pharotpre_dft_sumvis ===
 	pharotpre_dft_sumvis = pharotpre_dft_sumvis_handle(degrid, broadcast_lsm)
 	pharotpre_dft_sumvis.cache()
+    #TODO 验证pharotpre的正确性
+	viss = pharotpre_dft_sumvis.collect()
+	for v in viss:
+		print(v)
 
 	broads_input0 = sc.broadcast(pharotpre_dft_sumvis.collect())
 	# TODO 此处广播了整个pharotpre_dft_sumvis的结果，是否不对？
 	# # === Timeslots ===
-	timeslots = timeslots_handle(broads_input0, broads_input1)
-	timeslots.cache()
-	timeslots.count()
+	# timeslots = timeslots_handle(broads_input0, broads_input1)
+	# timeslots.cache()
+	# timeslots.count()
 	# # === solve ===
 	# solve = solve_handle(timeslots)
 	# solve.cache()

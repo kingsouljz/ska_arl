@@ -18,6 +18,7 @@ import numpy
 
 from arl.calibration.operations import create_gaintable_from_blockvisibility
 from arl.data.data_models import GainTable, BlockVisibility, assert_vis_gt_compatible
+from Constants import *
 
 from arl.visibility.iterators import vis_timeslice_iter
 from arl.visibility.operations import divide_visibility
@@ -52,7 +53,6 @@ def solve_gaintable(vis: BlockVisibility, modelvis: BlockVisibility=None, phase_
 
     # 根据blockvisibility的元数据初始化一个gaintable
     gt = create_gaintable_from_blockvisibility(vis)
-
     for chunk, rows in enumerate(vis_timeslice_iter(vis, **kwargs)): # 对visibility按照time切片
         # 切片好的visibility shape: [1,nant,nant,nchan,npol]
         subvis = create_visibility_from_rows(vis, rows)
@@ -75,12 +75,14 @@ def solve_gaintable(vis: BlockVisibility, modelvis: BlockVisibility=None, phase_
         gt = solve_from_X(gt, x, xwt, chunk, crosspol, niter, phase_only,
                         tol, npol=vis.polarisation_frame.npol)
 
+
     assert type(gt) is GainTable, "gt is not a GainTable: %r" % gt
     
     assert_vis_gt_compatible(vis, gt)
 
     
     return gt
+
 
 def solve_from_X(gt: GainTable, x: numpy.ndarray, xwt: numpy.ndarray, chunk, crosspol, niter, phase_only, tol, npol) \
         -> GainTable:
@@ -237,12 +239,14 @@ def solve_antenna_gains_itsubs_vector(gainshape, x, xwt, niter=30, tol=1e-8, pha
             if phase_only:
                 gain[..., rec, rec] = gain[..., rec, rec] / numpy.abs(gain[..., rec, rec])
             gain[..., rec, rec] *= numpy.conjugate(gain[refant, ..., rec, rec]) / numpy.abs(gain[refant, ..., rec, rec])
-        change = numpy.max(numpy.abs(gain - gainLast))
-        gain = 0.5 * (gain + gainLast)
-        # 若改变的值过小，则跳出迭代直接返回结果和残差
-        if change < tol:
-            return gain, gwt, solution_residual_vector(gain, x, xwt)
-    
+        # change = numpy.max(numpy.abs(gain - gainLast))
+        # gain = 0.5 * (gain + gainLast)
+        # 若改变的值过小，则跳出迭代直接返回结果和残差,因为拆分的缘故，将会导致误差
+        # if change < tol:
+        #     return gain, gwt, solution_residual_vector(gain, x, xwt)
+    # 消除因为浮点计算而产生的误差
+    low = pow(1, -PRECISION)
+    gain[abs(gain.imag)<low] = gain[abs(gain.imag)<low].real
     return gain, gwt, solution_residual_vector(gain, x, xwt)
 
 
@@ -418,11 +422,11 @@ def solution_residual_vector(gain, x, xwt):
     
     residual = numpy.zeros([nchan, nrec, nrec])
     sumwt = numpy.zeros([nchan, nrec, nrec])
-    
     for ant1 in range(nants):
         for ant2 in range(nants):
             for chan in range(nchan):
                 for rec in range(nrec):
+                    print(chan, ant1, ant2, rec)
                     error = x[ant2, ant1, chan, rec, rec] - \
                             gain[ant1, chan, rec, rec] * numpy.conjugate(gain[ant2, chan, rec, rec])
                     residual += (error * xwt[ant2, ant1, chan, rec, rec] * numpy.conjugate(error)).real

@@ -154,6 +154,7 @@ def divide_visibility(vis: BlockVisibility, modelvis: BlockVisibility):
                         wt = numpy.matrix(vis.weight[row, ant2, ant1, chan].reshape([2, 2]))
                         x[row, ant2, ant1, chan] = numpy.matmul(numpy.linalg.inv(mvis), ovis)
                         xwt[row, ant2, ant1, chan] = numpy.dot(mvis, numpy.multiply(wt, mvis.H)).real
+        x[abs(x)<1e-10] = 0.0
         # 计算得到新的vis和新的权重, 并且矩阵大部分值为0，因为只计算了ant2 > ant1的部分, 个人认为可以直接使用visibility计算
         x = x.reshape((nrows, nants, nants, nchan, nrec * nrec))
         xwt = xwt.reshape((nrows, nants, nants, nchan, nrec * nrec))
