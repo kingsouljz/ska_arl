@@ -259,7 +259,6 @@ class TestImageIterators(unittest.TestCase):
         for key in viss3:
             xs = []
             xwts = []
-            print('[' + str(key) + ']')
             for v, mv in zip(viss3[key], model_vis2[key]):
                 x, xwt = solve_gaintable_para(v[1], mv[1])
                 xs.append(((0,0,0,0,key[0],key[1],v[0][0],v[0][1]),x))

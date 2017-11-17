@@ -1279,13 +1279,13 @@ def solve_from_X_para(xs, xwts, gt, npol, phase_only=True, niter=30, tol=1e-8, c
     return gt
 
 # matrix系列
-def solve_antenna_gains_itsubs_matrix_para():
+def solve_antenna_gains_itsubs_matrix_para(gainshape, x, xwt, phase_only, niter, tol, refant=0):
     pass
 
 def gain_substitution_matrix_para():
     pass
 
-def solution_residual_matrix():
+def solution_residual_matrix_para():
     pass
 
 # vector系列
@@ -1317,8 +1317,8 @@ def solve_antenna_gains_itsubs_vector_para(gainshape, x, xwt, phase_only, niter,
             if phase_only:
                 gain[..., rec, rec] = gain[..., rec, rec] / np.abs(gain[..., rec, rec])
             gain[..., rec, rec] *= np.conjugate(gain[refant, rec, rec]) / np.abs(gain[refant, rec, rec])
-        # change = np.max(np.abs(gain - gainLast))
-        # gain = 0.5 * (gain + gainLast)
+        change = np.max(np.abs(gain - gainLast))
+        gain = 0.5 * (gain + gainLast)
         # if change < tol:
         #     return gain, gwt, solution_residual_vector_para(gain, newx, newxwt)
     # 消除因为浮点计算误差而产生的误差
@@ -1342,7 +1342,7 @@ def gain_substitution_vector_para(gain, x, xwt):
     for ant1 in range(nants):
         for rec in range(nrec):
             top = np.sum(x[:, ant1, rec, rec] * gain[:, rec, rec] * xwt[:, ant1, rec, rec], axis=0)
-            bot = np.sum(gain[:, rec, rec] * np.conjugate(gain[:, rec, rec]) * xwt[:, ant1, rec, rec], axis=0)
+            bot = np.sum((gain[:, rec, rec] * np.conjugate(gain[:, rec, rec]) * xwt[:, ant1, rec, rec]).real, axis=0)
 
             if bot > 0.0:
                 newgain[ant1, rec, rec] = top / bot
@@ -1373,13 +1373,44 @@ def solution_residual_vector_para(gain, x, xwt):
     return residual, sumwt
 
 # scalar系列
-def solve_antenna_gains_itsubs_scalar_para():
-    pass
+def solve_antenna_gains_itsubs_scalar_para(gainshape, x, xwt, phase_only, niter, tol, refant=0):
+    nants = gainshape[0]
+    npol = x[0][1].shape[0]
+    assert npol == 4
+    newshape = (nants, nants, 2, 2)
+    newx = np.zeros(newshape, dtype=x[0][1].dtype)
+    newxwt = np.zeros(newshape, dtype=xwt[0].dtype)
+    for data, weight in zip(x, xwt):
+        id, it = data
+        newx[id[6], id[6], ...] = 0.0
+        newxwt[id[6], id[6], ...] = 0.0
+        newx[id[6], id[7], ...] = np.conjugate(it.reshape([2, 2]))
+        newxwt[id[6], id[7], ...] = weight.reshape([2, 2])
+        newx[id[7], id[6], ...] = it.reshape([2, 2])
+        newxwt[id[7], id[6], ...] = weight.reshape([2, 2])
+
+    gain = np.ones(shape=gainshape, dtype=x[0][1].dtype)
+    gwt = np.zeros(shape=gainshape, dtype=xwt[0].dtype)
+    for iter in range(niter):
+        gainLast = gain
+        gain, gwt = gain_substitution_scalar_para(gain, newx, newxwt)
+        mask = np.abs(gain) > 0.0
+        if phase_only:
+            gain[mask] = gain[maskt] / np.abs(gain[mask])
+        angles = np.angle(gain)
+        gain *= np.exp(-1j * angles)[refant, ...]
+        gain = 0.5 * (gain + gainLast)
+        change = np.max(np.abs(gain - gainLast))
+        # if change < tol:
+        #     return gain, gwt, solution_residual_vector_para(gain, newx, newxwt)
+    low = pow(1, -PRECISION)
+    gain[abs(gain.imag) < low] = gain[abs(gain.imag) < low].real
+    return gain, gwt, solution_residual_scalar_para(gain, newx, newxwt)
 
 def gain_substitution_scalar_para():
     pass
 
-def solution_residual_scalar():
+def solution_residual_scalar_para():
     pass
 
 

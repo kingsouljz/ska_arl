@@ -455,8 +455,8 @@ def pharotpre_dft_sumvis_kernel(ixs):
 			viss2[(id[0], id[1], id[2], id[3], id[6], id[7])] = vis
 	result = list(zip(viss2.keys(), viss2.values()))
 	label = "Phase Rotation Predict + DFT + Sum visibilities (546937.1 MB, 512.53 Tflop) "
-	print(label + str(viss))
-	return iter(viss)
+	print(label + str(result))
+	return iter(result)
 
 def timeslots_kernel(ixs):
 	idx, data_pharotpre_dft_sumvis, data_visibility_buffer = ixs

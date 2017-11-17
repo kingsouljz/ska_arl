@@ -239,8 +239,8 @@ def solve_antenna_gains_itsubs_vector(gainshape, x, xwt, niter=30, tol=1e-8, pha
             if phase_only:
                 gain[..., rec, rec] = gain[..., rec, rec] / numpy.abs(gain[..., rec, rec])
             gain[..., rec, rec] *= numpy.conjugate(gain[refant, ..., rec, rec]) / numpy.abs(gain[refant, ..., rec, rec])
-        # change = numpy.max(numpy.abs(gain - gainLast))
-        # gain = 0.5 * (gain + gainLast)
+        change = numpy.max(numpy.abs(gain - gainLast))
+        gain = 0.5 * (gain + gainLast)
         # 若改变的值过小，则跳出迭代直接返回结果和残差,因为拆分的缘故，将会导致误差
         # if change < tol:
         #     return gain, gwt, solution_residual_vector(gain, x, xwt)
@@ -280,6 +280,7 @@ def gain_substitution_vector(gain, x, xwt):
                 if bot > 0.0:
                     newgain[ant1, chan, rec, rec] = top / bot
                     gwt[ant1, chan, rec, rec] = bot
+                    print(bot, gwt[ant1, chan, rec, rec])
                 else:
                     newgain[ant1, chan, rec, rec] = 0.0
                     gwt[ant1, chan, rec, rec] = 0.0
