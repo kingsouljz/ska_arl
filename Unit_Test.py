@@ -221,6 +221,7 @@ class TestImageIterators(unittest.TestCase):
         block_vis = decoalesce_visibility(visibility)
 
         gt = solve_gaintable(block_vis, model_vis)
+        apply_gaintable(block_vis, gt)
 
         #===并行===
         viss, visibility_share = visibility_to_visibility_para(vis, 'npol')
@@ -271,17 +272,31 @@ class TestImageIterators(unittest.TestCase):
 
         gaintable_right(gt, gts)
 
+        new_gain = combine_gaintable(gt, gts)
+
+        for key in viss3:
+            print(key)
+            chan, time = key
+            temp = gaintable_for_para(new_gain.gain[time,:,chan,:,:].reshape[1, 3, 2, 2])
+            apply_gaintable_para(viss3[key], temp)
+
+        # for key in viss3:
+        #     chan, time = key
+        #     vis_serial = block_vis.vis[time,:,:chan,:]
+        #     for id, v in viss3[key]:
+        #         ant1 = id[2]
+        #         ant2 = id[3]
+        #         vis_serial = block_vis.vis[time, ant2, ant1, chan]
+        #         print(vis_serial)
+        #         print(v.vis)
+        #         print()
 
 
 
 
 
-    def test_applay_gaintable(self):
-        '''
-            测试apply_gaintable
-        :return:
-        '''
-        pass
+
+
 
     # def pass_test(self):
     #     pass

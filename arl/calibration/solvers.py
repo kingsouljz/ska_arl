@@ -280,7 +280,6 @@ def gain_substitution_vector(gain, x, xwt):
                 if bot > 0.0:
                     newgain[ant1, chan, rec, rec] = top / bot
                     gwt[ant1, chan, rec, rec] = bot
-                    print(bot, gwt[ant1, chan, rec, rec])
                 else:
                     newgain[ant1, chan, rec, rec] = 0.0
                     gwt[ant1, chan, rec, rec] = 0.0
@@ -427,7 +426,7 @@ def solution_residual_vector(gain, x, xwt):
         for ant2 in range(nants):
             for chan in range(nchan):
                 for rec in range(nrec):
-                    print(chan, ant1, ant2, rec)
+                    # print(chan, ant1, ant2, rec)
                     error = x[ant2, ant1, chan, rec, rec] - \
                             gain[ant1, chan, rec, rec] * numpy.conjugate(gain[ant2, chan, rec, rec])
                     residual += (error * xwt[ant2, ant1, chan, rec, rec] * numpy.conjugate(error)).real

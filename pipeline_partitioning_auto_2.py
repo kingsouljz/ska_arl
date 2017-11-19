@@ -306,13 +306,8 @@ def visibility_buffer_kernel(ixs, vis):
 	input_size = 0
 
 	beam, frequency, time, baseline, polarisation = ixs
-	actual_frequency = frequency // 4
-	nvis = vis.data.shape[0] // 5
-	viss = visibility_for_para(vis.data['vis'][actual_frequency::5], vis.data['uvw'][actual_frequency::5]
-                            ,vis.data['time'][actual_frequency::5],vis.data['frequency'][actual_frequency::5],vis.data["channel_bandwidth"][actual_frequency::5]
-                            ,vis.data['integration_time'][actual_frequency::5],vis.data['antenna1'][actual_frequency::5],vis.data['antenna2'][actual_frequency::5]
-                            ,vis.data['weight'][actual_frequency::5], vis.data["imaging_weight"][actual_frequency::5], vis, "chan", nvis)
-	result = (ixs, viss)
+	viss = None
+	result = (ixs, None)
 	label = "Visibility Buffer (546937.1 MB, 0.00 Tflop) "
 	print(label + str(result))
 	return result
@@ -448,7 +443,7 @@ def pharotpre_dft_sumvis_kernel(ixs):
 	viss2 = {}
 	# 将同一channel同一time同一对baseline的vis合并起来
 	for id, vis in viss:
-		v = viss2[(id[0], id[1], id[2], id[3], id[6], id[7])]
+		v = viss2.get((id[0], id[1], id[2], id[3], id[6], id[7]))
 		if v != None:
 			v.data['vis'] += vis.data['vis']
 		else:

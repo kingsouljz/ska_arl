@@ -688,6 +688,29 @@ def visibility_right(a: Visibility, b: Visibility):
 
     print("pass the test!")
 
+def combine_gaintable(a: GainTable, b):
+    gain = np.zeros_like(a.gain)
+    weight = np.zeros_like(a.weight)
+    residual = np.zeros_like(a.residual)
+    sumwt = np.zeros_like(a.residual)
+    t = set()
+    f = set()
+    for key, gt in b:
+        gain[key[1], :, key[0], :, :] = gt.gain
+        weight[key[1], :, key[0], :, :] = gt.weight
+        residual[key[1], :, :, :] += gt.residual
+        sumwt[key[1], :, :, :] += gt.sumwt
+        t.add(gt.time[0])
+        f.add(gt.frequency[0])
+    for r, s in zip(residual, sumwt):
+        r[s > 0.0] = np.sqrt(r[s > 0.0] / s[s > 0.0])
+        r[s <= 0.0] = 0.0
+    frequency = np.array(sorted(list(f)))
+    time = np.array(sorted(list(t)))
+    new_gain = GainTable(data=None, time=time, weight=weight, residual=residual, frequency=frequency
+                         , gain=gain, receptor_frame=b[0][1].receptor_frame)
+    return new_gain
+
 def gaintable_right(a: GainTable, b):
     '''
         验证gain_table是否相等
@@ -1494,13 +1517,6 @@ def solution_residual_scalar_para(gain, x, xwt):
 # =============# =============#  cor_subvis_flag  =============# =============# =============
 def apply_gaintable_para(vis, gt: gaintable_for_para, inverse=False, **kwargs):
     """
-
-    :param vis:visibility_for_para的列表, 表中每个visibility的chan和time相同或者在被合并的同一组, facet和Polarisation均已合并
-     type: List[((key1, key2, ...), visibility_for_para]
-    :param gt:
-    :param inverse:
-    :param kwargs:
-    :return:
     """
     assert type(vis[0][1]) is visibility_for_para, "vis is not a list of visibility_para"
     assert vis[0][1].npol == gt.nrec * gt.nrec
@@ -1509,10 +1525,10 @@ def apply_gaintable_para(vis, gt: gaintable_for_para, inverse=False, **kwargs):
         gain = gt.data['gain']
         ntimes, nant, nrec, _ = gain.shape
         applied = copy.deepcopy(v.vis)
-        a1 = id[6]
-        a2 = id[7]
+        a1 = id[2]
+        a2 = id[3]
         for time in range(ntimes):
-            mueller = np.kron(gain[time, a2, :, :], np.conjugate(gain[time, a2, :, :]))
+            mueller = np.kron(gain[time, a1, :, :], np.conjugate(gain[time, a2, :, :]))
             if inverse:
                 mueller = np.linalg.inv(mueller)
 
