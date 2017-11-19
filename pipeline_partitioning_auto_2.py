@@ -447,12 +447,13 @@ def pharotpre_dft_sumvis_kernel(ixs):
 
 	viss2 = {}
 	# 将同一channel同一time同一对baseline的vis合并起来
-	for id, vis in viss2:
+	for id, vis in viss:
 		v = viss2[(id[0], id[1], id[2], id[3], id[6], id[7])]
 		if v != None:
 			v.data['vis'] += vis.data['vis']
 		else:
 			viss2[(id[0], id[1], id[2], id[3], id[6], id[7])] = vis
+
 	result = list(zip(viss2.keys(), viss2.values()))
 	label = "Phase Rotation Predict + DFT + Sum visibilities (546937.1 MB, 512.53 Tflop) "
 	print(label + str(result))
@@ -712,6 +713,8 @@ if __name__ == '__main__':
 
 	broads_input0 = sc.broadcast(pharotpre_dft_sumvis.collect())
 	# TODO 此处广播了整个pharotpre_dft_sumvis的结果，是否不对？
+
+
 	# # === Timeslots ===
 	# timeslots = timeslots_handle(broads_input0, broads_input1)
 	# timeslots.cache()
@@ -724,6 +727,8 @@ if __name__ == '__main__':
 	# cor_subvis_flag = cor_subvis_flag_handle(broads_input0, broads_input1, broads_input2)
 	# cor_subvis_flag.cache()
 	# broads_input = sc.broadcast(cor_subvis_flag.collect())
+
+
 	# # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
 	# grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
 	# grikerupd_pharot_grid_fft_rep.cache()

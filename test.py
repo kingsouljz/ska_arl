@@ -1280,13 +1280,70 @@ def solve_from_X_para(xs, xwts, gt, npol, phase_only=True, niter=30, tol=1e-8, c
 
 # matrix系列
 def solve_antenna_gains_itsubs_matrix_para(gainshape, x, xwt, phase_only, niter, tol, refant=0):
-    pass
+    nants = gainshape[0]
+    npol = x[0][1].shape[0]
+    assert npol == 4
+    newshape = (nants, nants, 2, 2)
+    newx = np.zeros(newshape, dtype=x[0][1].dtype)
+    newxwt = np.zeros(newshape, dtype=xt[0].dtype)
+    for data, weight in zip(x, xwt):
+        id, it = data
+        newx[id[6], id[6], ...] = 0.0
+        newxwt[id[6], id[6], ...] = 0.0
+        newx[id[6], id[7], ...] = np.conjugate(it.reshape([2,2]))
+        newxwt[id[6], id[7], ...] = weight.reshape([2,2])
+        newx[id[7], id[6], ...] = it.reshape([2,2])
+        newxwt[id[7], id[6], ...] = weight.reshape([2,2])
 
-def gain_substitution_matrix_para():
-    pass
+    gain = np.ones(shape=gainshape, dtype=x[0][1].dtype)
+    gain[..., 0, 1] = 0.0
+    gain[..., 1, 0] = 0.0
+    gwt = np.zeros(shape=gainshape, dtype=xwt[0].dtype)
 
-def solution_residual_matrix_para():
-    pass
+    for iter in range(niter):
+        gainLast = gain
+        gain, gwt = gain_substitution_matrix_para(gain, newx, newxwt)
+        if phase_only:
+            gain = gain / np.abs(gain)
+        change = np.max(np.abs(gain - gainLast))
+        gain = 0.5 * (gain + gainLast)
+        # if change < tol:
+            # return gain, gwt, solution_residual_matrix_para(gain, newx, newxwt)
+    low = pow(1, -PRECISION)
+    gain[abs(gain.imag) < low] = gain[abs(gain.imag) < low].real
+    return gain, gwt, solution_residual_vector_para(gain, newx, newxwt)
+
+def gain_substitution_matrix_para(gain, x, xwt):
+    nants, nrec, _ = gain.shape
+    newgain = np.ones_like(gain, dtype='complex')
+    gwt = np.zeros_like(gain, dtype='float')
+    for ant1 in range(nants):
+        top = 0.0
+        bot = 0.0
+        for ant2 in range(nants):
+            if ant1 != ant2:
+                xmat = x[ant2, ant1]
+                xwtmat = xwt[ant2, ant1]
+                g2 = gain[ant2]
+                top += xmat * xwtmat * g2
+                bot += np.conjugate(g2) * xwtmat * g2
+        newgain[ant1][bot > 0.0] = top[bot > 0.0] / bot[bot > 0.0]
+        newgain[ant1][bot <= 0.0] = 0.0
+        gwt[ant1] = bot.real
+    return newgain, gwt
+
+def solution_residual_matrix_para(gain, x, xwt):
+    nants, nrec, _ = gain.shape
+    residual = np.zeros([nrec, nrec])
+    sumwt = np.zeros([nrec, nrec])
+    for ant1 in range(nants):
+        for ant2 in range(nants):
+            for rec1 in range(nrec):
+                for rec2 in range(nrec):
+                    error = x[ant2, ant1, rec2, rec1] - gain[ant1, rec2, rec1] * np.conjugate(gain[ant2, rec2, rec1])
+                    residual[rec2, rec1] += (error * xwt[ant2, ant1, rec2, rec1] * np.conjugate(error)).real
+                    sumwt[chan, rec2, rec1] += xwt[ant2, ant1, rec2, rec1]
+    return residual, sumwt
 
 # vector系列
 def solve_antenna_gains_itsubs_vector_para(gainshape, x, xwt, phase_only, niter, tol, refant=0):
@@ -1407,12 +1464,32 @@ def solve_antenna_gains_itsubs_scalar_para(gainshape, x, xwt, phase_only, niter,
     gain[abs(gain.imag) < low] = gain[abs(gain.imag) < low].real
     return gain, gwt, solution_residual_scalar_para(gain, newx, newxwt)
 
-def gain_substitution_scalar_para():
-    pass
+def gain_substitution_scalar_para(gain, x, xwt):
+    nants, nrec, _ = gain.shape
+    newgain  = np.ones_like(gain, dtype='complex')
+    gwt = np.zeros_like(gain, dtype='float')
 
-def solution_residual_scalar_para():
-    pass
+    for ant1 in range(nants):
+        top = np.sum(x[:, ant1, 0, 0] * gain[:, 0, 0] * xwt[:, ant1, 0, 0], axis=0)
+        bot = np.sum((gain[:, 0, 0] * np.conjugate(gain[:, 0, 0]) * xwt[:, ant1, 0, 0]).real, axis=0)
+        if bot > 0.0:
+            newgain[ant1, 0, 0] = top / bot
+            gwt[ant1, 0, 0] = bot
+        else :
+            newgain[ant1, 0, 0] = 0.0
+            gwt[ant1, 0, 0] = 0.0
+    return newgain, gwt
 
+def solution_residual_scalar_para(gain, x, xwt):
+    nants, nrec, _ = gain.shape
+    residual = np.zeros([nrec, nrec])
+    sumwt = np.zeros([nrec, nrec])
+    for ant1 in range(nants):
+        for ant2 in range(nants):
+            error = x[ant2, ant1, 0, 0] - gain[ant1, 0, 0] * np.conjugate(gain[ant2, 0, 0])
+            residual += (error * xwt[ant2, ant1, 0, 0] * np.conjugate(error)).real
+            sumwt += xwt[ant2, ant1, 0, 0]
+    return residual, sumwt
 
 # =============# =============#  cor_subvis_flag  =============# =============# =============
 def apply_gaintable_para(vis, gt: gaintable_for_para, inverse=False, **kwargs):
