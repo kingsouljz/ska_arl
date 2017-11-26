@@ -299,6 +299,8 @@ def float_equal(a, b):
     # print(math.fabs(a - b))
     if math.fabs(a - b) < math.pow(10, -PRECISION):
         return True
+    elif (a < math.pow(1, -20) and math.isnan(b)) or (b < math.pow(1, -20) and math.isnan(a)):
+        return True
     else:
         return False
 
@@ -343,6 +345,21 @@ def wcs4_to_wcs2(wcs4: WCS) -> WCS:
     newwcs.wcs.radesys = wcs4.wcs.radesys
     newwcs.wcs.equinox = wcs4.wcs.equinox
     return newwcs
+
+def create_new_wcs_new_shape(im, shape):
+    newwcs = copy.deepcopy(im.wcs)
+    ny = 0
+    nx = 0
+    if len(im.shape) == 4:
+        ny, nx = im.shape[2:]
+    elif len(im.shape) == 2:
+        ny, nx = im.shape
+    image_phasecentre = pixel_to_skycoord(nx // 2, ny // 2, im.wcs, origin=1)
+    newshape = np.array(shape)
+    newwcs.wcs.crval[0] = image_phasecentre.ra.deg
+    newwcs.wcs.crval[1] = image_phasecentre.dec.deg
+    # print(newwcs.wcs.crval)
+    return newwcs, newshape
 
 def create_empty_visibility_para(config: Configuration, times, frequency, channel_bandwidth, phasecentre,
                            weight, polarisation_frame, integration_time):

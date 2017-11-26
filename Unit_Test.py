@@ -69,25 +69,25 @@ class TestImageIterators(unittest.TestCase):
     #         insert_skycomponent(image_graph, comp, insert_method=method)
     #         image_right(image_graph, new_im)
     #         print("%s method test passed" % method)
-    #
-    #
-    # def test_Reproject_image(self):
-    #     '''
-    #         test reproject_image
-    #         已通过 2017, 11, 5
-    #     :return:
-    #     '''
-    #     newwcs, newshape = create_new_wcs_new_shape(image_graph.wcs, image_graph.data.shape)
-    #     ims, image_share = image_to_image_para(image_graph, FACETS)
-    #
-    #     ims2 = []
-    #     for i in ims:
-    #         wcs,newshape2 = create_new_wcs_new_shape(i.wcs, i.data.shape)
-    #         ims2.append(reproject_image_para(i, wcs, newshape2)[0])
-    #     new_im = image_para_facet_to_image(ims2, FACETS, image_share)
-    #
-        # im = reproject_image(image_graph, newwcs, newshape)[0]
-    #     image_right(im, new_im)
+
+
+    def test_Reproject_image(self):
+        '''
+            test reproject_image
+            已通过 2017, 11, 5
+        :return:
+        '''
+        newwcs, newshape = create_new_wcs_new_shape(image_graph, image_graph.data.shape)
+        ims, image_share = image_to_image_para(image_graph, FACETS)
+
+        ims2 = []
+        for i in ims:
+            wcs, newshape2 = create_new_wcs_new_shape(i, i.data.shape)
+            ims2.append(reproject_image_para(i, wcs, newshape2)[0])
+        new_im = image_para_facet_to_image(ims2, FACETS, image_share)
+
+        im = reproject_image(image_graph, newwcs, newshape)[0]
+        image_right(im, new_im)
     #
     # def test_predict_facets(self):
     #     '''
@@ -201,95 +201,95 @@ class TestImageIterators(unittest.TestCase):
     #     visibility_right(visibility, new_vis)
 
     #===calibration_module===
-    def test_solve_gaintable(self):
-        '''
-            测试solve_gaintable
-        :return:
-        '''
-        #===串行===
-        newphasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-10.0 * u.deg, frame='icrs', equinox='J2000')
-        image = copy.deepcopy(image_graph)
-        insert_skycomponent(image, comp, insert_method="Sinc")
-
-        visibility = copy.deepcopy(vis)
-        predict_facets(visibility, image)
-
-        #人工创建一个非空的modelvis
-        model_vis = decoalesce_visibility(copy.deepcopy(visibility))
-        visibility = phaserotate_visibility(visibility, newphasecentre, tangent=False)
-        predict_skycomponent_visibility(visibility, comp)
-        block_vis = decoalesce_visibility(visibility)
-
-        gt = solve_gaintable(block_vis, model_vis)
-        apply_gaintable(block_vis, gt)
-
-        #===并行===
-        viss, visibility_share = visibility_to_visibility_para(vis, 'npol')
-        ims, image_share = image_to_image_para(image_graph, FACETS)
-        ims2 = []
-        for i in ims:
-            insert_skycomponent_para(i, comp, insert_method='Sinc')
-            ims2.append(i)
-
-        model_vis1 = []
-        viss2 = []
-        for v in viss:
-            for im in ims2:
-                if v[0][0] == im.frequency:
-                    temp = predict_facets_para(v[1], im)
-                    # (chan, time, ant1,  ant2)
-                    model_vis1.append(((v[0][0], v[0][1], v[0][2], v[0][3]), temp))
-                    viss2.append(((v[0][0], v[0][1], v[0][2], v[0][3], im.facet, im.polarisation), phaserotate_visibility_para(temp, newphasecentre, tangent=False)))
-        predict_skycoponent_visibility_para_modified(viss2, comp, mode='test2')
-        # 将visibility的facet和polarisation合并起来
-        viss3 = defaultdict(list)
-        model_vis2 = defaultdict(list)
-        for v in range(0,len(viss2),4 * 4):
-            temp = copy.deepcopy(viss2[v][1])
-            temp2 = copy.deepcopy(model_vis1[v][1])
-            for id in range(v+1, v+16):
-                temp.data['vis'] += viss2[id][1].data['vis']
-                temp2.data['vis'] += model_vis1[id][1].data['vis']
-            viss3[viss2[v][0][0:2]].append(((viss2[v][0][2:4]), temp))
-            model_vis2[model_vis1[v][0][0:2]].append(((model_vis1[v][0][2:]), temp2))
-
-
-
-        # TODO 将并行程序从此开始填入
-        gts = []
-        for key in viss3:
-            xs = []
-            xwts = []
-            for v, mv in zip(viss3[key], model_vis2[key]):
-                x, xwt = solve_gaintable_para(v[1], mv[1])
-                xs.append(((0,0,0,0,key[0],key[1],v[0][0],v[0][1]),x))
-                xwts.append(xwt)
-
-
-            g = create_gaintable_from_visibility_para(viss3[key][0][1], 3)
-            solve_from_X_para(xs, xwts, g, npol=viss3[key][0][1].npol)
-            gts.append((key, g))
-
-        gaintable_right(gt, gts)
-
-        new_gain = combine_gaintable(gt, gts)
-
-        for key in viss3:
-            print(key)
-            chan, time = key
-            temp = gaintable_for_para(new_gain.gain[time,:,chan,:,:].reshape[1, 3, 2, 2])
-            apply_gaintable_para(viss3[key], temp)
-
-        # for key in viss3:
-        #     chan, time = key
-        #     vis_serial = block_vis.vis[time,:,:chan,:]
-        #     for id, v in viss3[key]:
-        #         ant1 = id[2]
-        #         ant2 = id[3]
-        #         vis_serial = block_vis.vis[time, ant2, ant1, chan]
-        #         print(vis_serial)
-        #         print(v.vis)
-        #         print()
+    # def test_solve_gaintable(self):
+    #     '''
+    #         测试solve_gaintable
+    #     :return:
+    #     '''
+    #     #===串行===
+    #     newphasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-10.0 * u.deg, frame='icrs', equinox='J2000')
+    #     image = copy.deepcopy(image_graph)
+    #     insert_skycomponent(image, comp, insert_method="Sinc")
+    #
+    #     visibility = copy.deepcopy(vis)
+    #     predict_facets(visibility, image)
+    #
+    #     #人工创建一个非空的modelvis
+    #     model_vis = decoalesce_visibility(copy.deepcopy(visibility))
+    #     visibility = phaserotate_visibility(visibility, newphasecentre, tangent=False)
+    #     predict_skycomponent_visibility(visibility, comp)
+    #     block_vis = decoalesce_visibility(visibility)
+    #
+    #     gt = solve_gaintable(block_vis, model_vis)
+    #     apply_gaintable(block_vis, gt)
+    #
+    #     #===并行===
+    #     viss, visibility_share = visibility_to_visibility_para(vis, 'npol')
+    #     ims, image_share = image_to_image_para(image_graph, FACETS)
+    #     ims2 = []
+    #     for i in ims:
+    #         insert_skycomponent_para(i, comp, insert_method='Sinc')
+    #         ims2.append(i)
+    #
+    #     model_vis1 = []
+    #     viss2 = []
+    #     for v in viss:
+    #         for im in ims2:
+    #             if v[0][0] == im.frequency:
+    #                 temp = predict_facets_para(v[1], im)
+    #                 # (chan, time, ant1,  ant2)
+    #                 model_vis1.append(((v[0][0], v[0][1], v[0][2], v[0][3]), temp))
+    #                 viss2.append(((v[0][0], v[0][1], v[0][2], v[0][3], im.facet, im.polarisation), phaserotate_visibility_para(temp, newphasecentre, tangent=False)))
+    #     predict_skycoponent_visibility_para_modified(viss2, comp, mode='test2')
+    #     # 将visibility的facet和polarisation合并起来
+    #     viss3 = defaultdict(list)
+    #     model_vis2 = defaultdict(list)
+    #     for v in range(0,len(viss2),4 * 4):
+    #         temp = copy.deepcopy(viss2[v][1])
+    #         temp2 = copy.deepcopy(model_vis1[v][1])
+    #         for id in range(v+1, v+16):
+    #             temp.data['vis'] += viss2[id][1].data['vis']
+    #             temp2.data['vis'] += model_vis1[id][1].data['vis']
+    #         viss3[viss2[v][0][0:2]].append(((viss2[v][0][2:4]), temp))
+    #         model_vis2[model_vis1[v][0][0:2]].append(((model_vis1[v][0][2:]), temp2))
+    #
+    #
+    #
+    #     # TODO 将并行程序从此开始填入
+    #     gts = []
+    #     for key in viss3:
+    #         xs = []
+    #         xwts = []
+    #         for v, mv in zip(viss3[key], model_vis2[key]):
+    #             x, xwt = solve_gaintable_para(v[1], mv[1])
+    #             xs.append(((0,0,0,0,key[0],key[1],v[0][0],v[0][1]),x))
+    #             xwts.append(xwt)
+    #
+    #
+    #         g = create_gaintable_from_visibility_para(viss3[key][0][1], 3)
+    #         solve_from_X_para(xs, xwts, g, npol=viss3[key][0][1].npol)
+    #         gts.append((key, g))
+    #
+    #     gaintable_right(gt, gts)
+    #
+    #     new_gain = combine_gaintable(gt, gts)
+    #
+    #     for key in viss3:
+    #         print(key)
+    #         chan, time = key
+    #         temp = gaintable_for_para(new_gain.gain[time,:,chan,:,:].reshape[1, 3, 2, 2])
+    #         apply_gaintable_para(viss3[key], temp)
+    #
+    #     for key in viss3:
+    #         chan, time = key
+    #         vis_serial = block_vis.vis[time,:,:chan,:]
+    #         for id, v in viss3[key]:
+    #             ant1 = id[2]
+    #             ant2 = id[3]
+    #             vis_serial = block_vis.vis[time, ant2, ant1, chan]
+    #             print(vis_serial)
+    #             print(v.vis)
+    #             print()
 
 
 
@@ -305,14 +305,7 @@ class TestImageIterators(unittest.TestCase):
 
 
 
-def create_new_wcs_new_shape(wcs, shape):
-    newwcs = copy.deepcopy(wcs)
-    newwcs.wcs.cdelt[0] = -0.001 * 180 / np.pi
-    newwcs.wcs.cdelt[1] = 0.001 * 180 / np.pi
-    newshape = np.array(shape)
-    newshape[-2] /= 2
-    newshape[-1] /= 2
-    return newwcs, newshape
+
 
 
 if __name__ == '__main__':
