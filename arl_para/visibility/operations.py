@@ -210,6 +210,10 @@ def subtract_visibility(vis: visibility_for_para, modelvis: visibility_for_para)
     vis.data['vis'] = vis.data['vis'] - modelvis.data['vis']
     return vis
 
+def coalesce_visibility_para(vis: visibility_for_para, **kwargs):
+    # 暂不考虑time和frequency的压缩
+    pass
+
 
 
 

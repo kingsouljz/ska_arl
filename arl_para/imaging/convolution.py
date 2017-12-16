@@ -56,15 +56,6 @@ def predict_with_image_iterator_para(vis: visibility_for_para, model: image_for_
     return vis
 
 def convolutional_degrid_para(kernel_list, vshape, uvgrid, vuvwmap, pol):
-    '''
-
-    :param kernel_list:
-    :param vshape:
-    :param uvgrid:
-    :param vuvwmap:
-    :param im:
-    :return:
-    '''
     kernel_indices, kernels = kernel_list
     kernel_oversampling, _, gh, gw = kernels[0].shape
     assert gh % 2 == 0, "Convolution kernel must have even number of pixels"

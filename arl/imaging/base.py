@@ -166,14 +166,14 @@ def invert_2d_base(vis: Visibility, im: Image, dopsf: bool = False, normalize: b
         svis.data['vis'] = numpy.ones_like(svis.data['vis'])
 
     svis = shift_vis_to_image(svis, im, tangent=True, inverse=False)
-    
+
     nchan, npol, ny, nx = im.data.shape
     
     spectral_mode, vfrequencymap = get_frequency_map(svis, im)
     polarisation_mode, vpolarisationmap = get_polarisation_map(svis, im, **kwargs)
     uvw_mode, shape, padding, vuvwmap = get_uvw_map(svis, im, **kwargs)
     kernel_name, gcf, vkernellist = get_kernel_list(svis, im, **kwargs)
-    
+
     # Optionally pad to control aliasing
     imgridpad = numpy.zeros([nchan, npol, int(round(padding * ny)), int(round(padding * nx))], dtype='complex')
     imgridpad, sumwt = convolutional_grid(vkernellist, imgridpad, svis.data['vis'],

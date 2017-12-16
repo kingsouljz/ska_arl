@@ -16,6 +16,23 @@ def fft(a):
         return numpy.fft.fftshift(numpy.fft.fft2(numpy.fft.ifftshift(a)))
 
 
+def ifft(a):
+    """ Fourier transformation from grid to image space
+
+    .. note::
+
+        If there are four axes then the last outer axes are not transformed
+
+    :param a: `uv` grid to transform
+    :return: an image in `lm` coordinate space
+    """
+    # TODO no need to modify
+    if (len(a.shape) == 4):
+        return numpy.fft.fftshift(numpy.fft.ifft2(numpy.fft.ifftshift(a, axes=[2, 3])), axes=[2, 3])
+    else:
+        return numpy.fft.fftshift(numpy.fft.ifft2(numpy.fft.ifftshift(a)))
+
+
 def pad_mid(ff, npixel):
     """
     Pad a far field image with zeroes to make it the given size.
@@ -61,3 +78,37 @@ def pad_mid(ff, npixel):
                          pad_width=pw,
                          mode='constant',
                          constant_values=0.0)
+
+
+def extract_mid(a, npixel):
+    """
+    Extract a section from middle of a map
+
+    Suitable for zero frequencies at npixel/2. This is the reverse
+    operation to pad.
+
+    .. note::
+
+        If there are four axes then the last outer axes are not transformed
+
+    :param npixel:
+    :param a: grid from which to extract
+    """
+    if len(a.shape) == 4:
+        nchan, npol, ny, nx = a.shape
+        cx = nx // 2
+        cy = ny // 2
+        s = npixel // 2
+        if npixel % 2 != 0:
+            return a[..., cx - s:cx + s + 1, cy - s:cy + s + 1]
+        else:
+            return a[..., cx - s:cx + s, cy - s:cy + s]
+    else:
+        ny, nx = a.shape
+        cx = nx // 2
+        cy = ny // 2
+        s = npixel // 2
+        if npixel % 2 != 0:
+            return a[cx - s:cx + s + 1, cy - s:cy + s + 1]
+        else:
+            return a[cx - s:cx + s, cy - s:cy + s]

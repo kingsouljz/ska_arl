@@ -22,6 +22,8 @@ from arl_para.skycomponent.operations import *
 from arl_para.gaintable.base import *
 from arl.calibration.solvers import *
 from arl_para.solve.solve import *
+from arl_para.imaging.invert import *
+from arl.imaging.facets import *
 
 os.environ["PYSPARK_PYTHON"]="/usr/local/bin/python3"
 global bytebuffer
@@ -168,7 +170,7 @@ def grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_inp
 	initset = []
 	beam = 0
 	frequency = 0
-	for facet in range(0, 81):
+	for facet in range(0, PIECE):
 		for polarisation in range(0, 4):
 			time = 0
 			major_loop = 0
@@ -179,7 +181,7 @@ def sum_facets_handle(grikerupd_pharot_grid_fft_rep):
 	initset = []
 	beam = 0
 	frequency = 0
-	for facet in range(0, 81):
+	for facet in range(0, PIECE):
 		for polarisation in range(0, 4):
 			time = 0
 			major_loop = 0
@@ -193,12 +195,12 @@ def identify_component_handle(sum_facets):
 	beam = 0
 	major_loop = 0
 	frequency = 0
-	for facet in range(0, 81):
+	for facet in range(0, PIECE):
 		partitions[(beam, major_loop, frequency, facet)] = partition
 		partition += 1
 		for i_polarisation in range(0, 4):
 			dep_sum_facets[(beam, major_loop, frequency, 0, facet, i_polarisation)] = [(beam, major_loop, frequency, facet)]
-	return sum_facets.partitionBy(81, SDPPartitioner).mapPartitions(identify_component_kernel_partitions)
+	return sum_facets.partitionBy(PIECE, SDPPartitioner).mapPartitions(identify_component_kernel_partitions)
 
 def source_find_handle(identify_component):
     partitions = defaultdict(int)
@@ -333,7 +335,6 @@ def visibility_buffer_kernel(ixs):
     # 用整数填充vis， 模拟实际接收到的block_visibility
     vis_observed = coalesce_visibility(blockvis_observed)
     vis_observed.data['vis'].flat = range(vis_observed.nvis * 4)
-
     # 用自然数值填充vis，模拟实际接收到的block_visibility，并且各个vis的值各不相同易于区分
     vis_para.data['vis'] = copy.deepcopy(vis_observed.data['vis'][chan//4::5][:])
 
@@ -357,7 +358,6 @@ def telescope_data_kernel(ixs):
         phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-35.0 * u.deg, frame='icrs', equinox='J2000')
         result.append((ix, (conf, times, frequency, channel_bandwidth, phasecentre)))
         label = "Telescope Data (0.0 MB, 0.00 Tflop) "
-    print(label, str(result))
     return iter(result)
 
 def reppre_ifft_kernel(ixs):
@@ -482,47 +482,42 @@ def cor_subvis_flag_kernel(ixs):
     return (ix, result)
 
 def grikerupd_pharot_grid_fft_rep_kernel(ixs):
-	idx, data_telescope_data, data_cor_subvis_flag = ixs
-	Hash = 0
-	input_size = 0
-	ix = (0, 0, 0, 0, 0, 0)
-	ix = idx
-	label = "Gridding Kernel Update + Phase Rotation + Grid + FFT + Reprojection (14644.9 MB, 20.06 Tflop) " + str(ix).replace(" ", "")
-	Hash ^= hash(label)
-	print(label + " (hash " + hex(Hash) + " from " + str(input_size / 1000000) + " MB input)")
-	result = np.zeros(max(1, int(scale_data * 48816273)), int)
-	result[0] = Hash
-	return (ix, result)
+    ix, data_telescope_data, data_cor_subvis_flag = ixs
+    input_size = 0
+    beam, major_loop, frequency, time, facet, pol = ix
+    cix, (conf, times, frequency, channel_bandwidth, phasecentre) = data_telescope_data.value[0]
+    imgs = []
+    for idx, vis in data_cor_subvis_flag.value:
+        chan = idx[2]
+        image_para = create_image_para_2(NY // FACETS, NX // FACETS, chan, pol, facet, phasecentre, cellsize=0.001,
+                                         polarisation_frame=PolarisationFrame('linear'), FACET=FACETS)
+        image_para, wt = invert_facets_para(vis, image_para)
+        imgs.append(image_para)
+    result = imgs
+    label = "Gridding Kernel Update + Phase Rotation + Grid + FFT + Reprojection (14644.9 MB, 20.06 Tflop) " + str(ix).replace(" ", "")
+    print(label + " from " + str(input_size / 1000000) + " MB input)")
+    return (ix, result)
 
 def sum_facets_kernel(ixs):
-	Hash = 0
-	input_size = 0
-	ix = (0, 0, 0, 0, 0, 0)
-	dix, data = ixs
-	Hash ^= data[0]
-	input_size += data.shape[0]
-	ix = dix
-
-	label = "Sum Facets (14644.9 MB, 0.00 Tflop) " + str(ix).replace(" ", "")
-	Hash ^= hash(label)
-	print(label + " (hash " + hex(Hash) + " from " + str(input_size / 1000000) + " MB input)")
-	result = np.zeros(max(1, int(scale_data * 48816273)), int)
-	result[0] = Hash
-	return (ix, result)
+    input_size = 0
+    ix, data = ixs
+    result = None
+    for img in data:
+        if result == None:
+            result = img
+        else:
+            result.data += img.data
+    label = "Sum Facets (14644.9 MB, 0.00 Tflop) " + str(ix).replace(" ", "")
+    print(label + " from " + str(input_size / 1000000) + " MB input)")
+    return (ix, result)
 
 def identify_component_kernel_partitions(ixs):
-	Hash = 0
 	input_size = 0
 	ix = (0, 0, 0, 0, 0, 0)
 	for dix, data in ixs:
-		Hash ^= data[0]
-		input_size += data.shape[0]
 		ix = dix
 	label = "Identify Component (0.2 MB, 1830.61 Tflop) " + str(ix).replace(" ", "")
-	Hash ^= hash(label)
-	print(label + " (hash " + hex(Hash) + " from " + str(input_size / 1000000) + " MB input)")
-	result = np.zeros(max(1, int(scale_data * 533)), int)
-	result[0] = Hash
+	print(label + " from " + str(input_size / 1000000) + " MB input)")
 	return iter([((ix[0], ix[1], ix[2], ix[4]), result)])
 
 def source_find_kernel(ixs):
@@ -644,10 +639,20 @@ def serialize_program():
     gaintable = solve_gaintable(blockvis_observed, model_vis)
     apply_gaintable(blockvis_observed, gaintable)
     blockvis_observed.data['vis'] = blockvis_observed.data['vis'] - model_vis.data['vis']
-    visibility = coalesce_visibility(blockvis_observed)
+    visibility = coalesce_visibility(blockvis_observed)  # 空的image，接受visibility的invert
+
+    image = create_image(NY, NX, frequency=frequency, phasecentre=phasecentre, cellsize=0.001,
+                         polarisation_frame=PolarisationFrame('linear'))
+    image, wt = invert_facets(visibility, image)
+
+    new_image = Image()
+    new_image.wcs = image.wcs
+    new_image.polarisation_frame = image.polarisation_frame
+    new_image.data = np.sum(image.data, axis=0).reshape((1, NPOL, NY, NX)) * 4
 
 
-    return visibility
+
+    return new_image
 
 def create_vis_share():
     vis_share = visibility_share(None, NTIMES, NCHAN, NAN)
@@ -659,8 +664,8 @@ def create_vis_share():
 
 
 if __name__ == '__main__':
-    visibility = serialize_program()
-    conf = SparkConf().setMaster("local[1]").setAppName("io")
+    image = serialize_program()
+    conf = SparkConf().setMaster("local[4]").setAppName("io")
     sc = SparkContext(conf=conf)
     # === Extract Lsm ===
     extract_lsm = extract_lsm_handle()
@@ -712,14 +717,21 @@ if __name__ == '__main__':
     # visibility_right(visibility, back_visibility)
 
 
-	# # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
-	# grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
-	# grikerupd_pharot_grid_fft_rep.cache()
-	# # ===Sum Facets ===
-	# sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
-	# sum_facets.cache()
+    # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
+    grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
+    grikerupd_pharot_grid_fft_rep.cache()
+    # ===Sum Facets ===
+    sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
+    sum_facets.cache()
+    # # 验证sum module的正确性
+    # sum_image = sum_facets.collect()
+    # img_share = image_share(POLARISATION_FRAME, image.wcs, 1, NPOL, NY, NX)
+    # back_image = image_para_to_image(sum_image, img_share)
+    # image_right(image, back_image)
 
-	# # === Identify Component ===
+
+
+	# === Identify Component ===
 	# identify_component = identify_component_handle(sum_facets)
 	# # === Source Find ===
 	# source_find = source_find_handle(identify_component)

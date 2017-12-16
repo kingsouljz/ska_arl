@@ -310,7 +310,6 @@ def convolutional_grid(kernel_list, uvgrid, vis, visweights, vuvwmap, vfrequency
                 uvgrid[chan, pol, yy:yy+gh, xx:xx+gw] += kernel0[yyf, xxf, :, :] * v
                 sumwt[chan, pol] += vwt
 
-
     return uvgrid, sumwt
 
 

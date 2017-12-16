@@ -41,7 +41,7 @@ def invert_facets(vis: Visibility, im: Image, dopsf=False, normalize=True, inver
     :param invert_function: Function to be used for inverting (allows nesting) (default invert_2d)
     :return: resulting image[nchan, npol, ny, nx], sum of weights[nchan, npol]
     """
-    
+
     log.info("invert_facets: Inverting by image facets")
     return invert_with_image_iterator(vis, im, normalize=normalize, image_iterator=raster_iter, dopsf=dopsf,
                                       invert_function=invert_function, **kwargs)
