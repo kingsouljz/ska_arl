@@ -317,8 +317,6 @@ def uvw_equal(a, b):
 
     return True
 
-
-
 def complex_equal(a: np.complex_, b: np.complex_):
     '''
         判断两个complex数是否相等，虚部和实部之差均小于1e-7即认为相等
@@ -402,9 +400,6 @@ def create_empty_visibility_para(config: Configuration, times, frequency, channe
                 vis.phasecentre = phasecentre
                 viss.append(((0, 0, iha, a1, a2), vis))
     return viss
-
-
-
 
 def create_image_from_array_para(im , y1:int, y2:int, x1:int, x2:int, id:int, frequency, time, polarisation, wcs: WCS = None) -> image_for_para:
     '''
@@ -767,7 +762,6 @@ def gaintable_right(a: GainTable, b):
                         assert float_equal(a.weight[i,j,k,l,m], new_gain.weight[i,j,k,l,m]), "weight are different %s and %s" % (a.weight[i,j,k,l,m], new_gain.weight[i,j,k,l,m])
                         if j == 0:
                             assert float_equal(a.residual[i,k,l,m], new_gain.residual[i,k,l,m]), "residual are different %s and %s" % (a.residual, new_gain.residual)
-
 
 
 

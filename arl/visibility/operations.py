@@ -149,6 +149,8 @@ def divide_visibility(vis: BlockVisibility, modelvis: BlockVisibility):
             for ant1 in range(nants):
                 for ant2 in range(ant1 + 1, nants):
                     for chan in range(nchan):
+                        # print(vis.vis[row, ant2, ant1, chan])
+                        # print(row, ant2, ant1, chan)
                         ovis = numpy.matrix(vis.vis[row, ant2, ant1, chan].reshape([2, 2]))
                         mvis = numpy.matrix(modelvis.vis[row, ant2, ant1, chan].reshape([2, 2]))
                         wt = numpy.matrix(vis.weight[row, ant2, ant1, chan].reshape([2, 2]))
