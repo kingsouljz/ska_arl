@@ -444,8 +444,6 @@ def timeslots_kernel(ixs):
         idxs.append(idx)
         modelviss.append(model_vis)
         idxs2.append(idx2)
-    print(len(viss))
-    print(idxs)
     gt, x, xwt = solve_gaintable_para(viss, idxs, ix[3], modelviss, idxs2)
     label = "Timeslots (1518.3 MB, 0.00 Tflop) " + str(ix).replace(" ", "")
     print(label + " from " + str(input_size / 1000000) + " MB input)")
@@ -724,10 +722,10 @@ if __name__ == '__main__':
     sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
     sum_facets.cache()
     # # 验证sum module的正确性
-    # sum_image = sum_facets.collect()
-    # img_share = image_share(POLARISATION_FRAME, image.wcs, 1, NPOL, NY, NX)
-    # back_image = image_para_to_image(sum_image, img_share)
-    # image_right(image, back_image)
+    sum_image = sum_facets.collect()
+    img_share = image_share(POLARISATION_FRAME, image.wcs, 1, NPOL, NY, NX)
+    back_image = image_para_to_image(sum_image, img_share)
+    image_right(image, back_image)
 
 
 
