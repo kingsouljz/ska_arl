@@ -144,7 +144,6 @@ class image_for_para:
         每个被切片的image产生的第一个切片的wcs和原image的wcs是相同的
     '''
     def __init__(self, data, wcs, keys):
-        # TODO Image是不应该含有time这一个轴的
         self.keys = keys # {beam, major_loop, frequency, time, facet, polarisation}
         self.data = data
         self.wcs = wcs

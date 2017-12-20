@@ -6,12 +6,6 @@ from arl_para.gaintable.base import *
 from collections import defaultdict
 
 def vis_timeslice_iter_para(vis: Visibility, time, **kwargs) -> numpy.ndarray:
-    """ W slice iterator
-
-    :param wstack: wstack (wavelengths)
-    :param vis_slices: Number of slices (second in precedence to wstack)
-    :return: Boolean array with selected rows=True
-    """
     assert type(vis) == Visibility or type(vis) == BlockVisibility
     timemin = numpy.min(vis.time)
     timemax = numpy.max(vis.time)

@@ -48,14 +48,14 @@ def create_gaintable_from_visibility_para(vis: Visibility, time_width: float = N
 
 
 def gaintable_n_to_1(gains):
-    gain = gains[0]
+    gain = gains[0][1]
     gainshape = [len(gains), gain.nants, gain.nchan, gain.nrec, gain.nrec]
     gain_table = numpy.zeros(gainshape, dtype='complex')
     gain_weight = numpy.ones(gainshape)
     gain_time = numpy.zeros(len(gains))
     gain_frequency = gain.frequency
     gain_residual = numpy.zeros([len(gains), gain.nchan, gain.nrec, gain.nrec])
-    for idx, g in enumerate(gains):
+    for idx, g in gains:
        gain_table[idx] = g.gain
        gain_weight[idx] = g.weight
        gain_time[idx] = g.time[0]
@@ -110,7 +110,7 @@ def apply_gaintable_para(vis: visibility_for_para, gt:GainTable, chan, inverse=F
         for time in range(ntimes):
             for a1 in range(visnant - 1):
                 for a2 in range(a1 + 1, visnant):
-                    # 此处除以了4
+                    # 此处除以了便于验证结果
                     if iscopy:
                         mueller = numpy.kron(gain[time, a1, chan//4 , :, :], numpy.conjugate(gain[time, a2, chan//4, :, :]))
                     else:

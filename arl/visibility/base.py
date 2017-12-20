@@ -12,6 +12,7 @@ from astropy.coordinates import SkyCoord
 from arl.util.coordinate_support import xyz_to_uvw, uvw_to_xyz, skycoord_to_lmn, simulate_point
 from arl.data.data_models import Visibility, BlockVisibility, Configuration
 from arl.data.polarisation import PolarisationFrame, correlate_polarisation
+from arl_para.test.Constants import *
 
 import logging
 log = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ def create_visibility(config: Configuration, times: numpy.array, frequency: nump
     nch = len(frequency)
     ants_xyz = config.data['xyz']
     # nants = len(config.data['names'])
-    nants = 3
+    nants = NAN
     nbaselines = int(nants * (nants - 1) / 2)
     ntimes = len(times)
     npol = polarisation_frame.npol
@@ -148,7 +149,7 @@ def create_blockvisibility(config: Configuration,
     nch = len(frequency)
     ants_xyz = config.data['xyz']
     # nants = len(config.data['names'])
-    nants = 3
+    nants = NAN
     nbaselines = int(nants * (nants - 1) / 2)
     ntimes = len(times)
     npol = polarisation_frame.npol

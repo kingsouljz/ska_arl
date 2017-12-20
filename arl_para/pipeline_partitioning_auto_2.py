@@ -31,7 +31,6 @@ class Result():
 	def __init__(self, data, hash):
 		self.data = data
 		self.hash = hash
-# TODO 代码需要重新按照hash修改
 
 def SDPPartitioner_pharp_alluxio(key):
 	'''
@@ -464,7 +463,7 @@ def cor_subvis_flag_kernel(ixs):
     input_size = 0
     gs = []
     for idx, gt in data_solve.value:
-        gs.append(gt)
+        gs.append((idx[3], gt))
     gaintable = gaintable_n_to_1(gs)
     v = None
     model_v = None
@@ -482,7 +481,7 @@ def cor_subvis_flag_kernel(ixs):
 def grikerupd_pharot_grid_fft_rep_kernel(ixs):
     ix, data_telescope_data, data_cor_subvis_flag = ixs
     input_size = 0
-    beam, major_loop, frequency, time, facet, pol = ix
+    beam, major_loop, chan, time, facet, pol = ix
     cix, (conf, times, frequency, channel_bandwidth, phasecentre) = data_telescope_data.value[0]
     imgs = []
     for idx, vis in data_cor_subvis_flag.value:
@@ -577,24 +576,9 @@ def update_lsm_kernel(ixs):
 
 scale_data = 0
 scale_compute = 0
-def make_Image(ims, image_graph):
-	'''
-		还原图片
-	:param ims:
-	:param image_graph:
-	:return:
-	'''
-	im = []
-	newshape2 = np.array(ims[0, 0, 0].data.shape)
-	_, img_share = image_to_image_para(image_graph, FACETS)
-	for i in range(NCHAN):
-		for j in range(NPOL):
-			temp = ims[i, :, j]
-			im.append(image_gather(temp, FACETS, ims[i, 0, j].wcs,
-								   np.zeros(newshape2[0:2] * FACETS, dtype=ims[i, 0, j].data.dtype)))
-	return image_para_to_image(im, img_share)  # 还原为原Image类，查看是否相等
 
 def serialize_program():
+    result = []
     lowcore = create_named_configuration('LOWBD2-CORE')
     times = numpy.linspace(-3, +3, 5) * (numpy.pi / 12.0)  # time = 5
     frequency = numpy.array([1e8, 1.1e8, 1.2e8, 1.3e8, 1.4e8])  # nchan = 5
@@ -621,6 +605,7 @@ def serialize_program():
     newphasecentre = SkyCoord(ra=+10.0 * u.deg, dec=-30.0 * u.deg, frame='icrs', equinox='J2000')
     model_vis = phaserotate_visibility(visibility, newphasecentre)
     predict_skycomponent_visibility(model_vis, comp)
+    result.append(model_vis)
     model_vis = decoalesce_visibility(model_vis)
 
     # 模拟望远镜实际接收到的visibility
@@ -638,6 +623,7 @@ def serialize_program():
     apply_gaintable(blockvis_observed, gaintable)
     blockvis_observed.data['vis'] = blockvis_observed.data['vis'] - model_vis.data['vis']
     visibility = coalesce_visibility(blockvis_observed)  # 空的image，接受visibility的invert
+    result.append(visibility)
 
     image = create_image(NY, NX, frequency=frequency, phasecentre=phasecentre, cellsize=0.001,
                          polarisation_frame=PolarisationFrame('linear'))
@@ -647,10 +633,9 @@ def serialize_program():
     new_image.wcs = image.wcs
     new_image.polarisation_frame = image.polarisation_frame
     new_image.data = np.sum(image.data, axis=0).reshape((1, NPOL, NY, NX)) * 4
+    result.append(new_image)
 
-
-
-    return new_image
+    return result
 
 def create_vis_share():
     vis_share = visibility_share(None, NTIMES, NCHAN, NAN)
@@ -662,7 +647,7 @@ def create_vis_share():
 
 
 if __name__ == '__main__':
-    image = serialize_program()
+    result = serialize_program()
     conf = SparkConf().setMaster("local[4]").setAppName("io")
     sc = SparkContext(conf=conf)
     # === Extract Lsm ===
@@ -694,7 +679,7 @@ if __name__ == '__main__':
     # vis_share = create_vis_share()
     # vis_share.phasecentre = phase_vis[0][1].phasecentre
     # back_visibility = visibility_para_to_visibility(phase_vis, vis_share, mode="1to1")
-    # visibility_right(visibility, back_visibility)
+    # visibility_right(result[0], back_visibility)
 
     #  === Timeslots ===
     timeslots = timeslots_handle(broads_input0, broads_input1)
@@ -712,20 +697,22 @@ if __name__ == '__main__':
     # vis_share = create_vis_share()
     # vis_share.phasecentre = subtract_vis[0][1].phasecentre
     # back_visibility = visibility_para_to_visibility(subtract_vis, vis_share, mode="1to1")
-    # visibility_right(visibility, back_visibility)
+    # visibility_right(result[1], back_visibility)
+    while True:
+        pass
 
 
-    # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
-    grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
-    grikerupd_pharot_grid_fft_rep.cache()
-    # ===Sum Facets ===
-    sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
-    sum_facets.cache()
-    # # 验证sum module的正确性
-    sum_image = sum_facets.collect()
-    img_share = image_share(POLARISATION_FRAME, image.wcs, 1, NPOL, NY, NX)
-    back_image = image_para_to_image(sum_image, img_share)
-    image_right(image, back_image)
+    # # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
+    # grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
+    # grikerupd_pharot_grid_fft_rep.cache()
+    # # ===Sum Facets ===
+    # sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
+    # sum_facets.cache()
+    # # # 验证sum module的正确性
+    # sum_image = sum_facets.collect()
+    # img_share = image_share(POLARISATION_FRAME, image.wcs, 1, NPOL, NY, NX)
+    # back_image = image_para_to_image(sum_image, img_share)
+    # image_right(result[2], back_image)
 
 
 
@@ -739,7 +726,7 @@ if __name__ == '__main__':
 	# # === Update LSM ===
 	# update_lsm = update_lsm_handle(local_sky_model, source_find)
 
-	# # # === Terminate ===
+	# === Terminate ===
 	# print("Finishing...")
 	# #print("Subtract Image Component: %d" % subimacom.count())
 	# print("Update LSM: %d" % update_lsm.count())
