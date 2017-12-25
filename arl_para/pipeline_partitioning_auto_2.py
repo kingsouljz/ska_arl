@@ -698,21 +698,20 @@ if __name__ == '__main__':
     # vis_share.phasecentre = subtract_vis[0][1].phasecentre
     # back_visibility = visibility_para_to_visibility(subtract_vis, vis_share, mode="1to1")
     # visibility_right(result[1], back_visibility)
-    while True:
-        pass
 
 
-    # # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
-    # grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
-    # grikerupd_pharot_grid_fft_rep.cache()
-    # # ===Sum Facets ===
-    # sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
-    # sum_facets.cache()
-    # # # 验证sum module的正确性
-    # sum_image = sum_facets.collect()
-    # img_share = image_share(POLARISATION_FRAME, image.wcs, 1, NPOL, NY, NX)
-    # back_image = image_para_to_image(sum_image, img_share)
-    # image_right(result[2], back_image)
+
+    # === Gridding Kernel Update + Phase Rotation + Grid + FFT + Rreprojection ===
+    grikerupd_pharot_grid_fft_rep = grikerupd_pharot_grid_fft_rep_handle(broads_input_telescope_data, broads_input)
+    grikerupd_pharot_grid_fft_rep.cache()
+    # ===Sum Facets ===
+    sum_facets = sum_facets_handle(grikerupd_pharot_grid_fft_rep)
+    sum_facets.cache()
+    # # 验证sum module的正确性
+    sum_image = sum_facets.collect()
+    img_share = image_share(POLARISATION_FRAME, result[2].wcs, 1, NPOL, NY, NX)
+    back_image = image_para_to_image(sum_image, img_share)
+    image_right(result[2], back_image)
 
 
 
